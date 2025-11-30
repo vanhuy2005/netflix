@@ -1,6 +1,12 @@
-# 🎬 Netflix Clone 2025
+<div align="center">
+  <img src="client/public/logo-con-chim.png" alt="Netflix Logo" width="120" />
+  
+  # 🎬 Netflix Clone 2025
+  
+  <p>Full-stack Netflix Clone với giao diện hiện đại nhất, sử dụng React + Vite + TailwindCSS + Framer Motion + Firebase</p>
+</div>
 
-Full-stack Netflix Clone với giao diện hiện đại nhất, sử dụng React + Vite + TailwindCSS + Framer Motion + Firebase.
+---
 
 ## ✨ Tính năng Hiện có
 
@@ -16,18 +22,13 @@ Full-stack Netflix Clone với giao diện hiện đại nhất, sử dụng Rea
 ### 🎨 UI/UX Components
 
 - ✅ **Deep Black Background** (#141414) - màu nền chính thức của Netflix
-- ✅ **Font Poppins** - font chữ hiện đại như Netflix 2025
+- ✅ **Font Netflix Sans** - font chữ hiện đại như Netflix 2025
 - ✅ **Framer Motion** - hiệu ứng chuyển động mượt mà
 - ✅ **Responsive Design** - tương thích mọi thiết bị
 - ✅ **Feature Cards** - 4 thẻ tính năng với gradient đẹp
 - ✅ **FAQ Accordion** - Câu hỏi thường gặp với animation
 - ✅ **Floating Labels** - Form inputs như Netflix thật
 
-### 🎬 Browse Page (Sau khi đăng nhập)
-
-- ✅ **Navbar** với hiệu ứng scroll và animation
-- ✅ **Hero Section** với gradient overlay đẹp mắt
-- ✅ **Movie Row** với scroll ngang và hover effects
 
 ## 🎨 Màu sắc Netflix chuẩn
 
@@ -68,67 +69,6 @@ npm install
 npm run dev
 ```
 
-## 📁 Cấu trúc thư mục
-
-```
-client/
-├── src/
-│   ├── components/
-│   │   ├── Navbar/
-│   │   │   └── Navbar.tsx       # Navigation bar với scroll effect
-│   │   ├── Hero/
-│   │   │   └── Hero.tsx         # Hero banner section
-│   │   └── MovieRow/
-│   │       └── MovieRow.tsx     # Movie carousel row
-│   ├── pages/
-│   │   └── Home/
-│   │       └── Home.tsx         # Trang chủ
-│   ├── App.tsx
-│   ├── index.css               # Global styles
-│   └── main.tsx
-├── public/
-│   └── assets/                 # Images & icons
-├── tailwind.config.js          # Tailwind configuration
-└── package.json
-```
-
-## 🎭 Components
-
-### Navbar
-
-- Scroll effect với background transition
-- Responsive navigation links
-- Icons với hover animation
-
-### Hero
-
-- Full-screen hero banner
-- Gradient overlays
-- Animated buttons với Framer Motion
-- Image title và description
-
-### MovieRow
-
-- Horizontal scroll carousel
-- Hover effects với scale animation
-- Navigation arrows
-- Smooth scrolling
-
-## 🎨 Framer Motion Animations
-
-Tất cả components đều sử dụng Framer Motion cho:
-
-- Fade in/out effects
-- Scale animations
-- Smooth transitions
-- Scroll-based animations
-
-## 📱 Responsive
-
-- Desktop: Full experience
-- Tablet: Optimized layout
-- Mobile: Touch-friendly interface
-
 ## 🔧 Customization
 
 Bạn có thể tùy chỉnh:
@@ -136,13 +76,6 @@ Bạn có thể tùy chỉnh:
 - Màu sắc trong `tailwind.config.js`
 - Font chữ trong `index.html` và `tailwind.config.js`
 - Animations trong từng component
-
-## 📝 Notes
-
-- Font Poppins được load từ Google Fonts
-- Tất cả màu sắc tuân theo Netflix Design System 2025
-- CSS utilities được tối ưu với Tailwind
-- Smooth scrollbar với custom styling
 
 ---
 
