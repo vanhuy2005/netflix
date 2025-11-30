@@ -1,16 +1,100 @@
+import { useEffect, useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
+import type { User } from "firebase/auth";
+// @ts-expect-error - Firebase config is in JS
+import { auth } from "./config/firebase";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
+// Pages
+// @ts-expect-error - Component is in JSX
+import LandingPage from "./pages/Landing/LandingPage";
+// @ts-expect-error - Component is in JSX
+import LoginPage from "./pages/Auth/LoginPage";
+// @ts-expect-error - Component is in JSX
+import SignupStep1 from "./pages/Auth/SignupStep1";
+// @ts-expect-error - Component is in JSX
+import SignupStep2 from "./pages/Auth/SignupStep2";
+// @ts-expect-error - Component is in JSX
+import SignupStep3 from "./pages/Auth/SignupStep3";
+// @ts-expect-error - Component is in JSX
+import CompleteSignupPage from "./pages/Auth/CompleteSignupPage";
+// @ts-expect-error - Component is in JSX
+import BrowsePage from "./pages/Browse/BrowsePage";
+// @ts-expect-error - Component is in JSX
+import ProfilePage from "./pages/Profile/ProfilePage";
+// @ts-expect-error - Component is in JSX
+import NetflixSpinner from "./components/common/NetflixSpinner";
+
+import "./App.css";
 
 function App() {
-  return (
-    <div className="h-screen flex flex-col items-center justify-center gap-4">
-      <h1 className="text-5xl font-bold text-netflix-red">NETFLIX</h1>
-      <p className="text-xl text-gray-400">Clone Project Setup Complete</p>
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-      {/* Test nút bấm chuẩn style Netflix */}
-      <button className="px-6 py-2 bg-netflix-red text-white font-medium rounded hover:bg-netflix-redHover transition-colors duration-300">
-        Sign In
-      </button>
-    </div>
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return <NetflixSpinner />;
+  }
+
+  return (
+    <Router>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
+
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/"
+          element={user ? <Navigate to="/browse" /> : <LandingPage />}
+        />
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/browse" /> : <LoginPage />}
+        />
+        <Route path="/signup/step1" element={<SignupStep1 />} />
+        <Route path="/signup/step2" element={<SignupStep2 />} />
+        <Route path="/signup/step3" element={<SignupStep3 />} />
+        <Route path="/complete-signup" element={<CompleteSignupPage />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/browse"
+          element={user ? <BrowsePage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/profile"
+          element={user ? <ProfilePage /> : <Navigate to="/login" />}
+        />
+
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Router>
   );
 }
 

@@ -5,17 +5,18 @@ export default {
     extend: {
       colors: {
         netflix: {
-          red: "#E50914", // Màu đỏ thương hiệu (Logo, nút CTA)
-          redHover: "#C11119", // Màu đỏ tối hơn khi hover
-          dark: "#141414", // Màu nền các card
-          black: "#000000", // Màu nền chính
+          red: "#E50914", // Netflix Red - màu đỏ chính thức
+          redHover: "#C11119", // Màu đỏ khi hover
+          deepBlack: "#141414", // Deep Black - màu nền chính Netflix 2025
+          darkGray: "#181818", // Dark Gray - màu nền card/section
           gray: "#8C8C8C", // Màu text phụ
-          light: "#F5F5F1", // Màu text chính
+          lightGray: "#B3B3B3", // Màu text secondary
+          white: "#FFFFFF", // Text chính
         },
       },
       fontFamily: {
-        // Chúng ta sẽ dùng Roboto làm font chủ đạo thay cho Netflix Sans
-        sans: ["Roboto", "sans-serif"],
+        poppins: ["Poppins", "sans-serif"], // Font Poppins như Netflix 2025
+        sans: ["Poppins", "sans-serif"],
       },
       backgroundImage: {
         // Gradient phủ lên ảnh bìa phim để làm nổi bật chữ trắng

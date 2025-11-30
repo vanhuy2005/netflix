@@ -1,31 +1,97 @@
-/* 1. Import Font */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
-
+/* Netflix Clone 2025 - Global Styles */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 2. Base Layer Setup */
+/* Netflix Sans Font */
+@font-face {
+  font-family: "Netflix Sans";
+  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Regular.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Netflix Sans";
+  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Medium.woff2")
+    format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Netflix Sans";
+  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Bold.woff2")
+    format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Base Layer Setup */
 @layer base {
-  body {
-    @apply bg-netflix-black text-white font-sans antialiased overflow-x-hidden;
+  * {
+    @apply box-border;
   }
-  
-  /* Tùy chỉnh thanh cuộn cho giống Web App */
+
+  body {
+    @apply bg-netflix-deepBlack text-netflix-white antialiased overflow-x-hidden;
+    font-family: "Netflix Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom Scrollbar - Netflix Style */
   ::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-netflix-black;
+    @apply bg-netflix-deepBlack;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-netflix-gray/50 rounded-full;
+    @apply bg-netflix-gray/60 rounded-full;
+    transition: background 0.3s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-netflix-lightGray/80;
   }
 }
 
-/* 3. Utility Custom (Nếu cần sau này) */
+/* Custom Utilities */
 @layer utilities {
   .text-shadow {
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.45);
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
   }
-} 
+
+  .text-shadow-lg {
+    text-shadow: 0px 4px 12px rgba(0, 0, 0, 0.9);
+  }
+
+  .gradient-overlay {
+    background: linear-gradient(
+      to top,
+      rgba(20, 20, 20, 1) 0%,
+      transparent 100%
+    );
+  }
+
+  .netflix-gradient {
+    background: linear-gradient(90deg, #141414 0%, transparent 100%);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
