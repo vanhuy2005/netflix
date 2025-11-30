@@ -1,0 +1,31 @@
+/* 1. Import Font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. Base Layer Setup */
+@layer base {
+  body {
+    @apply bg-netflix-black text-white font-sans antialiased overflow-x-hidden;
+  }
+  
+  /* Tùy chỉnh thanh cuộn cho giống Web App */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-netflix-black;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-netflix-gray/50 rounded-full;
+  }
+}
+
+/* 3. Utility Custom (Nếu cần sau này) */
+@layer utilities {
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.45);
+  }
+} 
