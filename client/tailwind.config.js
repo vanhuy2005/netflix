@@ -15,8 +15,9 @@ export default {
         },
       },
       fontFamily: {
-        poppins: ["Poppins", "sans-serif"], // Font Poppins như Netflix 2025
-        sans: ["Poppins", "sans-serif"],
+        inter: ["Inter", "sans-serif"], // Font Inter hỗ trợ tiếng Việt tốt
+        sans: ["Inter", "sans-serif"], // Default font
+        netflix: ["Netflix Sans", "Inter", "sans-serif"], // Netflix branding
       },
       backgroundImage: {
         // Gradient phủ lên ảnh bìa phim để làm nổi bật chữ trắng
