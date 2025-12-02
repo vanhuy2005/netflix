@@ -8,7 +8,7 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 100) {
+      if (window.scrollY >= 20) {
         setScrolled(true);
       } else {
         setScrolled(false);
@@ -24,10 +24,10 @@ const Navbar = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className={`fixed top-0 left-0 w-full z-50 px-8 py-4 transition-all duration-300 ${
+      className={`fixed top-0 left-0 w-full z-50 px-8 py-4 transition-colors duration-500 ${
         scrolled
-          ? "bg-netflix-deepBlack"
-          : "bg-gradient-to-b from-black/80 to-transparent"
+          ? "bg-[#141414]"
+          : "bg-transparent bg-gradient-to-b from-black/80 to-transparent"
       }`}
     >
       <div className="flex items-center justify-between max-w-[1920px] mx-auto">

@@ -24,8 +24,6 @@
 
 @font-face {
   font-family: "Netflix Sans";
-  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Bold.woff2")
-    format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -37,11 +35,20 @@
     @apply box-border;
   }
 
-  body {
-    @apply bg-netflix-deepBlack text-netflix-white antialiased overflow-x-hidden;
-    font-family: "Netflix Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: none;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-netflix-deepBlack text-netflix-white antialiased;
+    font-family: "Inter", "Netflix Sans", "Helvetica Neue", Helvetica, Arial,
+      sans-serif;
   }
 
   html {
