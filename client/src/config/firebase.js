@@ -11,6 +11,11 @@ import {
   addDoc,
   setDoc,
   doc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
 } from "firebase/firestore";
 import { toast } from "react-toastify";
 
@@ -165,4 +170,159 @@ const logout = async () => {
   }
 };
 
-export { app, auth, db, signup, login, logout };
+/**
+ * Save a movie to user's list
+ * @param {Object} user - Firebase user object
+ * @param {Object} movie - Movie data to save
+ */
+const saveShow = async (user, movie) => {
+  try {
+    console.log("🎬 saveShow called:", {
+      userEmail: user?.email,
+      movieId: movie?.id,
+      movieTitle: movie?.title || movie?.name,
+    });
+
+    if (!user || !user.email) {
+      console.error("❌ No user email");
+      toast.error("Vui lòng đăng nhập để lưu phim");
+      throw new Error("User not authenticated");
+    }
+
+    if (!movie || !movie.id) {
+      console.error("❌ Invalid movie data:", movie);
+      toast.error("Thông tin phim không hợp lệ");
+      throw new Error("Invalid movie data");
+    }
+
+    // Create document reference with movie ID to avoid duplicates
+    const showRef = doc(
+      db,
+      "users",
+      user.email,
+      "savedShows",
+      String(movie.id)
+    );
+
+    const movieData = {
+      id: movie.id,
+      title: movie.title || movie.name || "Untitled",
+      backdrop_path: movie.backdrop_path || "",
+      poster_path: movie.poster_path || "",
+      overview: movie.overview || "",
+      vote_average: movie.vote_average || 0,
+      release_date: movie.release_date || movie.first_air_date || "",
+      savedAt: serverTimestamp(),
+    };
+
+    console.log("💾 Saving to Firestore:", movieData);
+
+    // Save movie data
+    await setDoc(showRef, movieData);
+
+    console.log("✅ Movie saved successfully!");
+    toast.success("✓ Đã thêm vào danh sách của bạn");
+  } catch (error) {
+    console.error("❌ Save show error:", error);
+    toast.error("Không thể lưu phim. Vui lòng thử lại");
+    throw error;
+  }
+};
+
+/**
+ * Remove a movie from user's list
+ * @param {Object} user - Firebase user object
+ * @param {string|number} movieId - Movie ID to remove
+ */
+const removeShow = async (user, movieId) => {
+  try {
+    console.log("🗑️ removeShow called:", {
+      userEmail: user?.email,
+      movieId: movieId,
+    });
+
+    if (!user || !user.email) {
+      console.error("❌ No user email");
+      toast.error("Vui lòng đăng nhập");
+      throw new Error("User not authenticated");
+    }
+
+    if (!movieId) {
+      console.error("❌ Invalid movie ID");
+      toast.error("ID phim không hợp lệ");
+      throw new Error("Invalid movie ID");
+    }
+
+    // Delete document
+    const showRef = doc(db, "users", user.email, "savedShows", String(movieId));
+
+    console.log("🗑️ Deleting from Firestore:", showRef.path);
+    await deleteDoc(showRef);
+
+    console.log("✅ Movie removed successfully!");
+    toast.success("✓ Đã xóa khỏi danh sách");
+  } catch (error) {
+    console.error("❌ Remove show error:", error);
+    toast.error("Không thể xóa phim. Vui lòng thử lại");
+    throw error;
+  }
+};
+
+/**
+ * Subscribe to real-time updates of user's saved shows
+ * @param {Object} user - Firebase user object
+ * @param {Function} callback - Callback function to receive updates
+ * @returns {Function} Unsubscribe function
+ */
+const subscribeToSavedShows = (user, callback) => {
+  try {
+    if (!user || !user.email) {
+      console.error("User not authenticated for subscription");
+      return () => {}; // Return empty unsubscribe function
+    }
+
+    // Create reference to savedShows collection
+    const savedShowsRef = collection(db, "users", user.email, "savedShows");
+    const q = query(savedShowsRef, orderBy("savedAt", "desc"));
+
+    console.log("👂 Subscribing to savedShows for:", user.email);
+
+    // Listen to real-time updates
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const shows = [];
+        snapshot.forEach((doc) => {
+          shows.push({
+            firestoreId: doc.id,
+            ...doc.data(),
+          });
+        });
+
+        console.log("📊 Saved shows updated:", shows.length, "movies");
+        callback(shows);
+      },
+      (error) => {
+        console.error("❌ Subscription error:", error);
+        toast.error("Không thể tải danh sách phim");
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("Subscribe error:", error);
+    return () => {}; // Return empty unsubscribe function
+  }
+};
+
+export {
+  app,
+  auth,
+  db,
+  signup,
+  login,
+  logout,
+  saveShow,
+  removeShow,
+  subscribeToSavedShows,
+};

@@ -4,6 +4,14 @@ import axios from "axios";
 import YouTube from "react-youtube";
 import { motion } from "framer-motion";
 import { FaPlay, FaInfoCircle, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
+import { IoAdd, IoCheckmark } from "react-icons/io5";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  auth,
+  saveShow,
+  removeShow,
+  subscribeToSavedShows,
+} from "../../config/firebase";
 import { getImageUrl } from "../../utils/tmdbApi";
 import requests from "../../api/requests";
 
@@ -14,6 +22,9 @@ const Billboard = () => {
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [showVideo, setShowVideo] = useState(false);
+  const [user, setUser] = useState(null);
+  const [savedShows, setSavedShows] = useState([]);
+  const [isInList, setIsInList] = useState(false);
 
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
@@ -64,6 +75,51 @@ const Billboard = () => {
     fetchBillboardMovie();
   }, [TMDB_API_KEY]);
 
+  // Listen to auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log("Auth state changed:", currentUser?.email || "No user");
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to saved shows for real-time updates
+  useEffect(() => {
+    if (!user) {
+      setSavedShows([]);
+      return;
+    }
+
+    console.log("Subscribing to saved shows for:", user.email);
+    const unsubscribe = subscribeToSavedShows(user, (shows) => {
+      console.log("Saved shows updated:", shows.length, "movies");
+      setSavedShows(shows);
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user]);
+
+  // Check if current movie is in saved list
+  useEffect(() => {
+    if (movie && savedShows.length > 0) {
+      const inList = savedShows.some(
+        (show) => String(show.id) === String(movie.id)
+      );
+      console.log(
+        `Movie ${movie.id} (${movie.title}) is ${inList ? "IN" : "NOT IN"} list`
+      );
+      setIsInList(inList);
+    } else {
+      setIsInList(false);
+    }
+  }, [movie, savedShows]);
+
   // YouTube player options for full-bleed video
   const opts = {
     playerVars: {
@@ -94,6 +150,40 @@ const Billboard = () => {
     if (!str) return "";
     if (str.length <= num) return str;
     return str.slice(0, num) + "...";
+  };
+
+  // Handle add/remove from My List
+  const handleListToggle = async () => {
+    if (!user || !user.email) {
+      console.warn("No user logged in, redirecting to login");
+      navigate("/login");
+      return;
+    }
+
+    if (!movie || !movie.id) {
+      console.error("No movie data available");
+      return;
+    }
+
+    console.log(
+      `Toggle list for movie: ${movie.title} (ID: ${movie.id}), currently ${
+        isInList ? "IN" : "NOT IN"
+      } list`
+    );
+
+    try {
+      if (isInList) {
+        console.log("Removing from list...");
+        await removeShow(user, movie.id);
+        // Toast already shown in removeShow function
+      } else {
+        console.log("Adding to list...");
+        await saveShow(user, movie);
+        // Toast already shown in saveShow function
+      }
+    } catch (error) {
+      console.error("Error toggling list:", error);
+    }
   };
 
   return (
@@ -183,6 +273,21 @@ const Billboard = () => {
             >
               <FaPlay className="text-xl md:text-2xl" />
               <span>Phát</span>
+            </motion.button>
+
+            {/* Add to My List Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleListToggle}
+              className="flex items-center justify-center bg-white/30 hover:bg-white/20 text-white w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-white/50 transition-all backdrop-blur-sm shadow-lg"
+              title={isInList ? "Xóa khỏi danh sách" : "Thêm vào danh sách"}
+            >
+              {isInList ? (
+                <IoCheckmark className="text-2xl md:text-3xl" />
+              ) : (
+                <IoAdd className="text-2xl md:text-3xl" />
+              )}
             </motion.button>
 
             {/* More Info Button */}
