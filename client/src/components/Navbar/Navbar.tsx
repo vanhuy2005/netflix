@@ -48,7 +48,7 @@ const Navbar = () => {
               { name: "Phim truyền hình", path: "#" },
               { name: "Phim", path: "#" },
               { name: "Mới & Phổ biến", path: "#" },
-              { name: "Danh sách của tôi", path: "#" },
+              { name: "Danh sách của tôi", path: "/my-list" },
             ].map((item) => (
               <motion.a
                 key={item.name}

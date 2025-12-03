@@ -1,16 +1,88 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { FaPlay, FaPlus, FaChevronDown } from "react-icons/fa";
-import { AiOutlineLike } from "react-icons/ai";
+import { FaPlay } from "react-icons/fa";
+import { IoAdd, IoCheckmark } from "react-icons/io5";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  auth,
+  saveShow,
+  removeShow,
+  subscribeToSavedShows,
+} from "../../config/firebase";
 import { getImageUrl } from "../../utils/tmdbApi";
 
 const MovieCard = ({ movie, isLarge = false }) => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savedShows, setSavedShows] = useState([]);
+
+  // Listen to auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to saved shows for real-time updates
+  useEffect(() => {
+    if (!user) {
+      setSavedShows([]);
+      return;
+    }
+
+    const unsubscribe = subscribeToSavedShows(user, (shows) => {
+      setSavedShows(shows);
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user]);
+
+  // Check if current movie is saved
+  useEffect(() => {
+    if (movie && savedShows.length > 0) {
+      const saved = savedShows.some(
+        (show) => String(show.id) === String(movie.id)
+      );
+      setIsSaved(saved);
+    } else {
+      setIsSaved(false);
+    }
+  }, [movie, savedShows]);
 
   const handlePlayClick = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     navigate(`/player/${movie.id}`);
   };
+
+  // Handle toggle My List with proper event handling
+  const handleToggleList = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      return;
+    }
+
+    try {
+      if (isSaved) {
+        await removeShow(user, movie.id);
+      } else {
+        await saveShow(user, movie);
+      }
+    } catch (error) {
+      console.error("Error toggling My List:", error);
+    }
+  };
+
   const imagePath = isLarge ? movie.poster_path : movie.backdrop_path;
   const fallbackImage = isLarge ? movie.backdrop_path : movie.poster_path;
 
@@ -87,40 +159,25 @@ const MovieCard = ({ movie, isLarge = false }) => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={handlePlayClick}
-                className="p-2 bg-white rounded-full hover:bg-white/80 transition"
+                className="p-2 md:p-2.5 bg-white rounded-full hover:bg-white/80 transition shadow-lg"
                 title="Phát"
               >
-                <FaPlay className="text-black text-xs" />
+                <FaPlay className="text-black text-xs md:text-sm" />
               </motion.button>
 
-              {/* Add to List */}
+              {/* Add/Remove from My List Button */}
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="p-2 bg-transparent border-2 border-gray-400 rounded-full hover:border-white transition"
-                title="Thêm vào danh sách"
+                onClick={handleToggleList}
+                className="p-2 md:p-2.5 bg-transparent border-2 border-white rounded-full hover:bg-white/20 transition-all shadow-lg"
+                title={isSaved ? "Xóa khỏi danh sách" : "Thêm vào danh sách"}
               >
-                <FaPlus className="text-white text-xs" />
-              </motion.button>
-
-              {/* Like */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-2 bg-transparent border-2 border-gray-400 rounded-full hover:border-white transition"
-                title="Thích"
-              >
-                <AiOutlineLike className="text-white text-xs" />
-              </motion.button>
-
-              {/* More Info */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="ml-auto p-2 bg-transparent border-2 border-gray-400 rounded-full hover:border-white transition"
-                title="Thông tin thêm"
-              >
-                <FaChevronDown className="text-white text-xs" />
+                {isSaved ? (
+                  <IoCheckmark className="text-white text-xs md:text-sm" />
+                ) : (
+                  <IoAdd className="text-white text-xs md:text-sm" />
+                )}
               </motion.button>
             </div>
           </div>
