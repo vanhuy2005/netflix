@@ -40,6 +40,12 @@ const requests = {
 
   // Drama - Phim chính kịch
   fetchDrama: `${BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&language=vi-VN&with_genres=18&sort_by=popularity.desc&page=1`,
+
+  // Search - Tìm kiếm phim & TV shows
+  search: (query) =>
+    `${BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&language=vi-VN&query=${encodeURIComponent(
+      query
+    )}&page=1`,
 };
 
 export default requests;

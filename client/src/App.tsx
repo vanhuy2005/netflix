@@ -34,6 +34,8 @@ import Player from "./pages/Player/Player";
 // @ts-expect-error - Component is in JSX
 import MyList from "./pages/MyList/MyList";
 // @ts-expect-error - Component is in JSX
+import Search from "./pages/Search/Search";
+// @ts-expect-error - Component is in JSX
 import NetflixSpinner from "./components/common/NetflixSpinner";
 
 import "./App.css";
@@ -91,16 +93,20 @@ function App() {
           element={user ? <BrowsePage /> : <Navigate to="/login" />}
         />
         <Route
-          path="/my-list"
-          element={user ? <MyList /> : <Navigate to="/login" />}
-        />
-        <Route
           path="/profile"
           element={user ? <ProfilePage /> : <Navigate to="/login" />}
         />
         <Route
           path="/player/:id"
           element={user ? <Player /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/my-list"
+          element={user ? <MyList /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/search"
+          element={user ? <Search /> : <Navigate to="/login" />}
         />
 
         {/* Catch all - redirect to home */}
