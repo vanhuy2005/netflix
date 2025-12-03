@@ -9,17 +9,18 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
-  const [searchKeyword, setSearchKeyword] = useState(""); // Local state for input
+  const [searchKeyword, setSearchKeyword] = useState(""); // Controlled input state
   const searchInputRef = useRef<HTMLInputElement>(null);
   const prevPathRef = useRef<string>("/browse"); // Remember previous page
   const debounceTimerRef = useRef<number | null>(null); // Debounce timer
-  const isTypingRef = useRef(false); // Track if user is actively typing
+  const isTypingRef = useRef(false); // Track if user is typing to prevent URL overwrite
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  // Compute whether search input should be visible
   const urlSearchQuery = searchParams.get("q") || "";
+
+  // Compute whether search input should be visible
   const showSearch =
     isSearchOpen || (location.pathname === "/search" && !!urlSearchQuery);
 
@@ -43,6 +44,24 @@ const Navbar = () => {
     }
   }, [location.pathname]);
 
+  // Sync keyword from URL when navigating TO search page (initial load or browser back/forward)
+  useEffect(() => {
+    // Don't sync if user is actively typing
+    if (isTypingRef.current) return;
+
+    if (location.pathname === "/search" && urlSearchQuery) {
+      // Only sync if keyword is different (prevents loop)
+      if (searchKeyword !== urlSearchQuery) {
+        setSearchKeyword(urlSearchQuery);
+      }
+      setIsSearchOpen(true);
+    } else if (location.pathname !== "/search" && searchKeyword) {
+      // Clear keyword when leaving search page
+      setSearchKeyword("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, urlSearchQuery]); // Intentionally exclude searchKeyword to prevent loop
+
   // Focus input when search box opens
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -63,7 +82,7 @@ const Navbar = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
 
-    // Mark as typing to prevent URL sync from overriding
+    // Mark as typing to prevent URL from overwriting input
     isTypingRef.current = true;
 
     // Update local state immediately for smooth UX
@@ -75,7 +94,7 @@ const Navbar = () => {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Debounce navigation (500ms delay)
+    // Debounce navigation (300ms delay for better responsiveness)
     debounceTimerRef.current = window.setTimeout(() => {
       isTypingRef.current = false; // User stopped typing
 
@@ -93,7 +112,7 @@ const Navbar = () => {
           setShowSearchOverlay(false);
         }
       }
-    }, 500);
+    }, 300);
   };
 
   // Handle search icon click
@@ -115,7 +134,7 @@ const Navbar = () => {
       clearTimeout(debounceTimerRef.current);
     }
 
-    setSearchKeyword(""); // Clear local state
+    setSearchKeyword(""); // Clear keyword
     setIsSearchOpen(false);
     setShowSearchOverlay(false);
 
@@ -130,7 +149,7 @@ const Navbar = () => {
   const handleCloseOverlay = () => {
     setShowSearchOverlay(false);
     setIsSearchOpen(false);
-    setSearchKeyword(""); // Clear local state
+    setSearchKeyword(""); // Clear keyword
   };
 
   // Handle input blur
