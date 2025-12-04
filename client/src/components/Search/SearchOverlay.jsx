@@ -51,8 +51,8 @@ const SearchOverlay = ({ onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Title */}
-        <div className="px-4 py-3 border-b border-gray-800">
-          <h3 className="text-white text-sm font-medium">
+        <div className="px-6 py-5 border-b border-gray-800">
+          <h3 className="text-white text-base font-semibold">
             Tìm kiếm nhiều nhất
           </h3>
         </div>
@@ -77,10 +77,10 @@ const SearchOverlay = ({ onClose }) => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.03 }}
                 onClick={() => handleMovieClick(item.id)}
-                className="group flex items-center px-4 py-3 hover:bg-[#2F2F2F] cursor-pointer transition-colors border-b border-gray-800/50 last:border-0"
+                className="group flex items-center px-5 py-3 hover:bg-[#2F2F2F] cursor-pointer transition-colors border-b border-gray-800/50 last:border-0"
               >
                 {/* Thumbnail */}
-                <div className="relative w-[90px] h-[50px] flex-shrink-0 rounded overflow-hidden">
+                <div className="relative w-[110px] h-[62px] flex-shrink-0 rounded overflow-hidden">
                   <img
                     src={`https://image.tmdb.org/t/p/w200${
                       item.backdrop_path || item.poster_path
@@ -91,15 +91,15 @@ const SearchOverlay = ({ onClose }) => {
                 </div>
 
                 {/* Movie Info */}
-                <div className="flex-1 ml-3 min-w-0">
-                  <h4 className="text-white text-sm font-medium line-clamp-1">
+                <div className="flex-1 ml-6 min-w-0">
+                  <h4 className="text-white text-[16px] font-medium line-clamp-1">
                     {item.title || item.name}
                   </h4>
                 </div>
 
                 {/* Play Icon on Right */}
-                <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <IoPlay className="text-white text-xl" />
+                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <IoPlay className="text-white text-2xl" />
                 </div>
               </motion.div>
             ))}

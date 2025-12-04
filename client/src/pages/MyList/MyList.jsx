@@ -40,17 +40,40 @@ const MyList = () => {
   useEffect(() => {
     if (!user) return;
 
-    setLoading(true);
-    const unsubscribeSavedShows = subscribeToSavedShows(user, (shows) => {
-      setSavedShows(shows);
+    // Check if profile exists before subscribing
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      console.log(
+        "No profile selected, skipping savedShows subscription in MyList"
+      );
+      setSavedShows([]);
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => {
-      if (unsubscribeSavedShows) {
-        unsubscribeSavedShows();
-      }
-    };
+    const profile = JSON.parse(currentProfile);
+    setLoading(true);
+
+    try {
+      const unsubscribeSavedShows = subscribeToSavedShows(
+        user,
+        profile.id,
+        (shows) => {
+          setSavedShows(shows);
+          setLoading(false);
+        }
+      );
+
+      return () => {
+        if (unsubscribeSavedShows) {
+          unsubscribeSavedShows();
+        }
+      };
+    } catch (error) {
+      console.error("Error subscribing to saved shows in MyList:", error);
+      setSavedShows([]);
+      setLoading(false);
+    }
   }, [user]);
 
   if (loading) {

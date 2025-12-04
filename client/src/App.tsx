@@ -36,21 +36,89 @@ import MyList from "./pages/MyList/MyList";
 // @ts-expect-error - Component is in JSX
 import Search from "./pages/Search/Search";
 // @ts-expect-error - Component is in JSX
+import ProfileGate from "./pages/Profile/ProfileGate";
+// @ts-expect-error - Component is in JSX
 import NetflixSpinner from "./components/common/NetflixSpinner";
 
 import "./App.css";
 
+/**
+ * Protected Route Component - Requires both authentication AND profile selection
+ * Redirects to /profiles if user logged in but no profile selected
+ * Redirects to /login if user not logged in
+ */
+interface ProtectedRouteProps {
+  user: User | null;
+  hasProfile: boolean;
+  children: React.ReactElement;
+  requireProfile?: boolean;
+}
+
+const ProtectedRoute = ({
+  user,
+  hasProfile,
+  children,
+  requireProfile = true,
+}: ProtectedRouteProps) => {
+  // Not logged in -> Login page
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Logged in but no profile AND route requires profile -> Profile Gate
+  if (requireProfile && !hasProfile) {
+    return <Navigate to="/profiles" replace />;
+  }
+
+  // All checks passed -> Render protected component
+  return children;
+};
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasProfile, setHasProfile] = useState(false);
+
+  // Check if user has selected a profile
+  const checkProfile = () => {
+    try {
+      const profileData = localStorage.getItem("current_profile");
+      return !!profileData;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+
+      // Check profile selection when user state changes
+      if (currentUser) {
+        setHasProfile(checkProfile());
+      } else {
+        setHasProfile(false);
+      }
+
       setLoading(false);
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Listen for profile changes
+  useEffect(() => {
+    const handleProfileChange = () => {
+      setHasProfile(checkProfile());
+    };
+
+    window.addEventListener("storage", handleProfileChange);
+    window.addEventListener("profileChanged", handleProfileChange);
+
+    return () => {
+      window.removeEventListener("storage", handleProfileChange);
+      window.removeEventListener("profileChanged", handleProfileChange);
+    };
   }, []);
 
   if (loading) {
@@ -76,41 +144,95 @@ function App() {
         {/* Public Routes */}
         <Route
           path="/"
-          element={user ? <Navigate to="/browse" /> : <LandingPage />}
+          element={
+            user ? (
+              hasProfile ? (
+                <Navigate to="/browse" replace />
+              ) : (
+                <Navigate to="/profiles" replace />
+              )
+            ) : (
+              <LandingPage />
+            )
+          }
         />
         <Route
           path="/login"
-          element={user ? <Navigate to="/browse" /> : <LoginPage />}
+          element={
+            user ? (
+              hasProfile ? (
+                <Navigate to="/browse" replace />
+              ) : (
+                <Navigate to="/profiles" replace />
+              )
+            ) : (
+              <LoginPage />
+            )
+          }
         />
         <Route path="/signup/step1" element={<SignupStep1 />} />
         <Route path="/signup/step2" element={<SignupStep2 />} />
         <Route path="/signup/step3" element={<SignupStep3 />} />
         <Route path="/complete-signup" element={<CompleteSignupPage />} />
 
-        {/* Protected Routes */}
+        {/* Profile Gate - No profile required (user can create/select here) */}
+        <Route
+          path="/profiles"
+          element={
+            <ProtectedRoute
+              user={user}
+              hasProfile={hasProfile}
+              requireProfile={false}
+            >
+              <ProfileGate />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Protected Routes - Require both auth AND profile selection */}
         <Route
           path="/browse"
-          element={user ? <BrowsePage /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute user={user} hasProfile={hasProfile}>
+              <BrowsePage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/profile"
-          element={user ? <ProfilePage /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute user={user} hasProfile={hasProfile}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/player/:id"
-          element={user ? <Player /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute user={user} hasProfile={hasProfile}>
+              <Player />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/my-list"
-          element={user ? <MyList /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute user={user} hasProfile={hasProfile}>
+              <MyList />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/search"
-          element={user ? <Search /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute user={user} hasProfile={hasProfile}>
+              <Search />
+            </ProtectedRoute>
+          }
         />
 
         {/* Catch all - redirect to home */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

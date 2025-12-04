@@ -171,22 +171,30 @@ const logout = async () => {
 };
 
 /**
- * Save a movie to user's list
+ * Save a movie to user's profile-specific list
  * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID from current_profile
  * @param {Object} movie - Movie data to save
  */
-const saveShow = async (user, movie) => {
+const saveShow = async (user, profileId, movie) => {
   try {
     console.log("🎬 saveShow called:", {
-      userEmail: user?.email,
+      userId: user?.uid,
+      profileId: profileId,
       movieId: movie?.id,
       movieTitle: movie?.title || movie?.name,
     });
 
-    if (!user || !user.email) {
-      console.error("❌ No user email");
+    if (!user || !user.uid) {
+      console.error("❌ No user");
       toast.error("Vui lòng đăng nhập để lưu phim");
       throw new Error("User not authenticated");
+    }
+
+    if (!profileId) {
+      console.error("❌ No profile ID");
+      toast.error("Vui lòng chọn hồ sơ trước");
+      throw new Error("No profile selected");
     }
 
     if (!movie || !movie.id) {
@@ -195,11 +203,13 @@ const saveShow = async (user, movie) => {
       throw new Error("Invalid movie data");
     }
 
-    // Create document reference with movie ID to avoid duplicates
+    // NEW PATH: users/{uid}/profiles/{profileId}/savedShows/{movieId}
     const showRef = doc(
       db,
       "users",
-      user.email,
+      user.uid,
+      "profiles",
+      profileId,
       "savedShows",
       String(movie.id)
     );
@@ -230,21 +240,29 @@ const saveShow = async (user, movie) => {
 };
 
 /**
- * Remove a movie from user's list
+ * Remove a movie from user's profile-specific list
  * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID from current_profile
  * @param {string|number} movieId - Movie ID to remove
  */
-const removeShow = async (user, movieId) => {
+const removeShow = async (user, profileId, movieId) => {
   try {
     console.log("🗑️ removeShow called:", {
-      userEmail: user?.email,
+      userId: user?.uid,
+      profileId: profileId,
       movieId: movieId,
     });
 
-    if (!user || !user.email) {
-      console.error("❌ No user email");
+    if (!user || !user.uid) {
+      console.error("❌ No user");
       toast.error("Vui lòng đăng nhập");
       throw new Error("User not authenticated");
+    }
+
+    if (!profileId) {
+      console.error("❌ No profile ID");
+      toast.error("Vui lòng chọn hồ sơ trước");
+      throw new Error("No profile selected");
     }
 
     if (!movieId) {
@@ -253,8 +271,16 @@ const removeShow = async (user, movieId) => {
       throw new Error("Invalid movie ID");
     }
 
-    // Delete document
-    const showRef = doc(db, "users", user.email, "savedShows", String(movieId));
+    // NEW PATH: Delete from profile-specific savedShows
+    const showRef = doc(
+      db,
+      "users",
+      user.uid,
+      "profiles",
+      profileId,
+      "savedShows",
+      String(movieId)
+    );
 
     console.log("🗑️ Deleting from Firestore:", showRef.path);
     await deleteDoc(showRef);
@@ -269,23 +295,36 @@ const removeShow = async (user, movieId) => {
 };
 
 /**
- * Subscribe to real-time updates of user's saved shows
+ * Subscribe to real-time updates of user's profile-specific saved shows
  * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID from current_profile
  * @param {Function} callback - Callback function to receive updates
  * @returns {Function} Unsubscribe function
  */
-const subscribeToSavedShows = (user, callback) => {
+const subscribeToSavedShows = (user, profileId, callback) => {
   try {
-    if (!user || !user.email) {
+    if (!user || !user.uid) {
       console.error("User not authenticated for subscription");
       return () => {}; // Return empty unsubscribe function
     }
 
-    // Create reference to savedShows collection
-    const savedShowsRef = collection(db, "users", user.email, "savedShows");
+    if (!profileId) {
+      console.error("No profile ID for subscription");
+      return () => {}; // Return empty unsubscribe function
+    }
+
+    // NEW PATH: Create reference to profile-specific savedShows collection
+    const savedShowsRef = collection(
+      db,
+      "users",
+      user.uid,
+      "profiles",
+      profileId,
+      "savedShows"
+    );
     const q = query(savedShowsRef, orderBy("savedAt", "desc"));
 
-    console.log("👂 Subscribing to savedShows for:", user.email);
+    console.log("👂 Subscribing to savedShows for profile:", profileId);
 
     // Listen to real-time updates
     const unsubscribe = onSnapshot(
@@ -315,6 +354,86 @@ const subscribeToSavedShows = (user, callback) => {
   }
 };
 
+/**
+ * Delete a profile from user's profiles collection
+ * @param {Object} user - Firebase Auth user object
+ * @param {string} profileId - Profile ID to delete
+ */
+const deleteProfile = async (user, profileId) => {
+  try {
+    if (!user || !user.uid) {
+      console.error("No user logged in");
+      toast.error("Bạn cần đăng nhập để xóa hồ sơ");
+      return false;
+    }
+
+    if (!profileId) {
+      console.error("No profile ID provided");
+      toast.error("ID hồ sơ không hợp lệ");
+      return false;
+    }
+
+    console.log(`🗑️ Deleting profile ${profileId} for user ${user.uid}`);
+
+    // Reference to the profile document
+    const profileRef = doc(db, "users", user.uid, "profiles", profileId);
+
+    // Delete the document
+    await deleteDoc(profileRef);
+
+    console.log(`✅ Profile ${profileId} deleted successfully`);
+    toast.success("Đã xóa hồ sơ thành công");
+    return true;
+  } catch (error) {
+    console.error("Delete profile error:", error);
+    toast.error("Không thể xóa hồ sơ. Vui lòng thử lại.");
+    return false;
+  }
+};
+
+/**
+ * Update a profile (name, avatar, PIN)
+ * @param {Object} user - Firebase Auth user object
+ * @param {string} profileId - Profile ID to update
+ * @param {Object} updates - Object with fields to update {name, avatar, pin}
+ */
+const updateProfile = async (user, profileId, updates) => {
+  try {
+    if (!user || !user.uid) {
+      console.error("No user logged in");
+      toast.error("Bạn cần đăng nhập");
+      return false;
+    }
+
+    if (!profileId) {
+      console.error("No profile ID provided");
+      toast.error("ID hồ sơ không hợp lệ");
+      return false;
+    }
+
+    console.log(`📝 Updating profile ${profileId}:`, updates);
+
+    // Reference to the profile document
+    const profileRef = doc(db, "users", user.uid, "profiles", profileId);
+
+    // Update with timestamp
+    const updateData = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(profileRef, updateData, { merge: true });
+
+    console.log(`✅ Profile ${profileId} updated successfully`);
+    // Toast will be shown in component, not here
+    return true;
+  } catch (error) {
+    console.error("Update profile error:", error);
+    toast.error("Không thể cập nhật hồ sơ. Vui lòng thử lại.");
+    return false;
+  }
+};
+
 export {
   app,
   auth,
@@ -325,4 +444,6 @@ export {
   saveShow,
   removeShow,
   subscribeToSavedShows,
+  deleteProfile,
+  updateProfile,
 };

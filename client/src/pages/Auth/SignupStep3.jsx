@@ -63,7 +63,7 @@ const SignupStep3 = () => {
           onClick={() => navigate("/")}
           className="absolute top-4 right-8 text-lg font-semibold text-gray-900 hover:underline"
         >
-          Sign in
+          Đăng Nhập
         </button>
       </header>
 
@@ -79,14 +79,14 @@ const SignupStep3 = () => {
 
           {/* Title */}
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            Create a password to start your membership
+            Tạo mật khẩu để tiếp tục
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg text-gray-700 mb-1">
-            Just a few more steps and you're done!
+            Còn vài bước nữa thôi và bạn đã hoàn thành!
           </p>
-          <p className="text-lg text-gray-700 mb-8">We hate paperwork, too.</p>
+          <p className="text-lg text-gray-700 mb-8">Chúng tôi cũng ghét việc này lắm...</p>
 
           {/* Form */}
           <form onSubmit={handleNext} className="space-y-6">
@@ -99,7 +99,7 @@ const SignupStep3 = () => {
                 className="w-full border-2 border-gray-300 rounded px-4 pt-6 pb-2 text-gray-900 bg-gray-50 cursor-not-allowed"
               />
               <label className="absolute left-4 top-2 text-xs text-gray-600">
-                Email address
+                Email 
               </label>
             </div>
 
@@ -114,7 +114,7 @@ const SignupStep3 = () => {
                 required
               />
               <label className="absolute left-4 top-2 text-xs text-gray-600 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs transition-all">
-                Password
+                Mật Khẩu
               </label>
             </div>
 
@@ -127,7 +127,7 @@ const SignupStep3 = () => {
                 className="mt-1 w-5 h-5 border-2 border-gray-400 rounded cursor-pointer accent-netflix-red"
               />
               <span className="text-gray-700 group-hover:text-gray-900 transition">
-                Please do not email me Netflix special offers.
+                Làm ơn đừng gửi cho tôi thông tin mới nhất và khuyến mãi nha Netflix .
               </span>
             </label>
 
@@ -148,15 +148,15 @@ const SignupStep3 = () => {
               onClick={handleSkip}
               className="w-full text-gray-600 hover:text-gray-900 text-sm font-medium underline transition"
             >
-              Skip (Đăng nhập bằng email link)
+              Bỏ qua (Đăng nhập bằng email link)
             </button>
           </form>
 
           {/* Footer */}
           <p className="text-xs text-gray-500 mt-8">
-            Questions?{" "}
+            Câu hỏi?{" "}
             <a href="#" className="underline hover:text-gray-700">
-              Contact us
+              Liên lạc với chúng tôi
             </a>
             .
           </p>
