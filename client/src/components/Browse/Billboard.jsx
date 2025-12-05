@@ -33,25 +33,43 @@ const Billboard = () => {
       try {
         setLoading(true);
         const response = await axios.get(requests.fetchTrending);
-        const movies = response.data.results;
 
-        // Lấy phim ngẫu nhiên từ trending
-        const randomMovie = movies[Math.floor(Math.random() * movies.length)];
+        // FAIL-SAFE: Filter valid movies only
+        const validMovies = response.data.results.filter(
+          (movie) =>
+            movie.id &&
+            movie.backdrop_path &&
+            (movie.title || movie.name) &&
+            movie.overview
+        );
+
+        if (validMovies.length === 0) {
+          console.error("No valid movies found in trending");
+          setLoading(false);
+          return;
+        }
+
+        // Lấy phim ngẫu nhiên từ valid movies
+        const randomMovie =
+          validMovies[Math.floor(Math.random() * validMovies.length)];
         setMovie(randomMovie);
 
-        // Fetch trailer
+        // FAIL-SAFE: Fetch trailer with strict error handling
         try {
           const videosResponse = await axios.get(
-            `https://api.themoviedb.org/3/movie/${randomMovie.id}/videos`,
+            `https://api.themoviedb.org/3/${
+              randomMovie.title ? "movie" : "tv"
+            }/${randomMovie.id}/videos`,
             {
               params: {
                 api_key: TMDB_API_KEY,
                 language: "en-US",
               },
+              timeout: 5000, // 5 second timeout
             }
           );
 
-          const videos = videosResponse.data.results;
+          const videos = videosResponse.data.results || [];
           const trailer =
             videos.find((v) => v.type === "Trailer" && v.site === "YouTube") ||
             videos.find((v) => v.type === "Teaser" && v.site === "YouTube") ||
@@ -61,12 +79,27 @@ const Billboard = () => {
             setTrailerKey(trailer.key);
             // Delay showing video to allow smooth initial render
             setTimeout(() => setShowVideo(true), 1000);
+          } else {
+            // FAIL-SAFE: No trailer found -> Show backdrop image only
+            console.log("No trailer available, showing backdrop only");
           }
-        } catch (error) {
-          console.error("Error fetching trailer:", error);
+        } catch (trailerError) {
+          // FAIL-SAFE: Trailer fetch failed -> Silently fallback to backdrop
+          console.log(
+            "Trailer fetch failed, using backdrop:",
+            trailerError.message
+          );
+          // Do NOT show error toast - just show backdrop image
         }
       } catch (error) {
         console.error("Error fetching billboard movie:", error);
+        // FAIL-SAFE: Set a fallback movie if main fetch fails
+        setMovie({
+          id: "fallback",
+          title: "Netflix Originals",
+          overview: "Explore trending movies and series",
+          backdrop_path: "/assets/hero_banner.jpg",
+        });
       } finally {
         setLoading(false);
       }
@@ -87,22 +120,38 @@ const Billboard = () => {
 
   // Subscribe to saved shows for real-time updates
   useEffect(() => {
+    // CRITICAL FIX: Only subscribe when user exists AND profile is selected
     if (!user) {
       setSavedShows([]);
       return;
     }
 
-    console.log("Subscribing to saved shows for:", user.email);
-    const unsubscribe = subscribeToSavedShows(user, (shows) => {
-      console.log("Saved shows updated:", shows.length, "movies");
-      setSavedShows(shows);
-    });
+    // Check if profile exists before subscribing
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      console.log("No profile selected, skipping savedShows subscription");
+      setSavedShows([]);
+      return;
+    }
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    const profile = JSON.parse(currentProfile);
+    console.log("Subscribing to saved shows for profile:", profile.id);
+
+    try {
+      const unsubscribe = subscribeToSavedShows(user, profile.id, (shows) => {
+        console.log("Saved shows updated:", shows.length, "movies");
+        setSavedShows(shows);
+      });
+
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    } catch (error) {
+      console.error("Error subscribing to saved shows:", error);
+      setSavedShows([]);
+    }
   }, [user]);
 
   // Check if current movie is in saved list
@@ -154,9 +203,18 @@ const Billboard = () => {
 
   // Handle add/remove from My List
   const handleListToggle = async () => {
-    if (!user || !user.email) {
+    if (!user || !user.uid) {
       console.warn("No user logged in, redirecting to login");
       navigate("/login");
+      return;
+    }
+
+    // Get current profile
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      console.error("No profile selected");
+      toast.error("Vui lòng chọn hồ sơ trước");
+      navigate("/profiles");
       return;
     }
 
@@ -165,20 +223,21 @@ const Billboard = () => {
       return;
     }
 
+    const profile = JSON.parse(currentProfile);
     console.log(
-      `Toggle list for movie: ${movie.title} (ID: ${movie.id}), currently ${
-        isInList ? "IN" : "NOT IN"
-      } list`
+      `Toggle list for movie: ${movie.title} (ID: ${movie.id}), profile: ${
+        profile.id
+      }, currently ${isInList ? "IN" : "NOT IN"} list`
     );
 
     try {
       if (isInList) {
         console.log("Removing from list...");
-        await removeShow(user, movie.id);
+        await removeShow(user, profile.id, movie.id);
         // Toast already shown in removeShow function
       } else {
         console.log("Adding to list...");
-        await saveShow(user, movie);
+        await saveShow(user, profile.id, movie);
         // Toast already shown in saveShow function
       }
     } catch (error) {

@@ -15,10 +15,27 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(fetchUrl);
-        setMovies(response.data.results);
+        const response = await axios.get(fetchUrl, {
+          timeout: 8000, // 8 second timeout
+        });
+
+        // FAIL-SAFE: Filter valid movies only
+        const validMovies = (response.data.results || []).filter(
+          (movie) =>
+            movie.id &&
+            (movie.poster_path || movie.backdrop_path) &&
+            (movie.title || movie.name)
+        );
+
+        setMovies(validMovies);
+
+        if (validMovies.length === 0) {
+          console.log(`No valid movies in ${title}`);
+        }
       } catch (error) {
-        console.error(`Error fetching ${title}:`, error);
+        console.error(`Error fetching ${title}:`, error.message);
+        // FAIL-SAFE: Set empty array on error (no crash, just empty row)
+        setMovies([]);
       } finally {
         setLoading(false);
       }

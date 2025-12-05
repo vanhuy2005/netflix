@@ -29,20 +29,38 @@ const MovieCard = ({ movie, isLarge = false }) => {
 
   // Subscribe to saved shows for real-time updates
   useEffect(() => {
+    // CRITICAL FIX: Only subscribe when user exists AND profile is selected
     if (!user) {
       setSavedShows([]);
       return;
     }
 
-    const unsubscribe = subscribeToSavedShows(user, (shows) => {
-      setSavedShows(shows);
-    });
+    // Check if profile exists before subscribing
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      console.log(
+        "No profile selected, skipping savedShows subscription in MovieCard"
+      );
+      setSavedShows([]);
+      return;
+    }
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    const profile = JSON.parse(currentProfile);
+
+    try {
+      const unsubscribe = subscribeToSavedShows(user, profile.id, (shows) => {
+        setSavedShows(shows);
+      });
+
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    } catch (error) {
+      console.error("Error subscribing to saved shows in MovieCard:", error);
+      setSavedShows([]);
+    }
   }, [user]);
 
   // Check if current movie is saved
@@ -72,11 +90,20 @@ const MovieCard = ({ movie, isLarge = false }) => {
       return;
     }
 
+    // Get current profile
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      console.error("No profile selected in MovieCard");
+      return;
+    }
+
+    const profile = JSON.parse(currentProfile);
+
     try {
       if (isSaved) {
-        await removeShow(user, movie.id);
+        await removeShow(user, profile.id, movie.id);
       } else {
-        await saveShow(user, movie);
+        await saveShow(user, profile.id, movie);
       }
     } catch (error) {
       console.error("Error toggling My List:", error);

@@ -101,4 +101,120 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Premium Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(20, 20, 20, 0.5);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(229, 9, 20, 0.6);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(229, 9, 20, 0.9);
+  }
+
+  /* Netflix Premium Typography */
+  .font-netflix-light {
+    font-weight: 300;
+    letter-spacing: -0.01em;
+  }
+
+  .font-netflix-normal {
+    font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+
+  .font-netflix-medium {
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  /* Premium Input Focus - No Borders, Just Glow */
+  .input-netflix-focus {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .input-netflix-focus:focus {
+    @apply outline-none bg-opacity-90;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Animations */
+
+/* Shake animation for wrong PIN */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+  }
+  75% {
+    transform: translateX(8px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+  border-color: #ef4444 !important;
+}
+
+/* Breathing animation for avatars */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.95;
+  }
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* Fade In Up */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Slide Up Smooth (for modals) */
+@keyframes slideUpSmooth {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideUpSmooth {
+  animation: slideUpSmooth 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
