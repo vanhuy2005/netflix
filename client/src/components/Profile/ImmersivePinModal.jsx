@@ -32,6 +32,7 @@ const ImmersivePinModal = ({
   subtitle = "",
   mode = "SET",
   existingPin = null,
+  onForgotPin = null,
 }) => {
   const [pinValue, setPinValue] = useState("");
   const [isError, setIsError] = useState(false);
@@ -179,7 +180,7 @@ const ImmersivePinModal = ({
           exit={{ opacity: 0, pointerEvents: "none" }}
           transition={{ duration: 0.2 }}
           onClick={handleBackdropClick}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md"
         >
           {/* Close Button */}
           <motion.button
@@ -321,6 +322,19 @@ const ImmersivePinModal = ({
           >
             Nhập 4 chữ số để tiếp tục
           </motion.p>
+
+          {/* Forgot PIN Link - Only show in VERIFY mode */}
+          {mode === "VERIFY" && onForgotPin && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              onClick={onForgotPin}
+              className="absolute bottom-4 text-white hover:underline text-sm font-light"
+            >
+              Bạn quên mã PIN?
+            </motion.button>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
