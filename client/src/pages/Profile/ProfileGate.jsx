@@ -20,6 +20,7 @@ import {
 import { auth, db, deleteProfile, updateProfile } from "../../config/firebase";
 import { NETFLIX_AVATARS } from "../../constants/avatars";
 import { toast } from "react-toastify";
+import { useTransition } from "../../context/TransitionContext";
 import EditProfileModal from "../../components/Profile/EditProfileModal";
 import PinEntryModal from "../../components/Profile/PinEntryModal";
 import PremiumAvatarPicker from "../../components/Profile/PremiumAvatarPicker";
@@ -44,6 +45,7 @@ const ProfileGate = () => {
   const [editingProfile, setEditingProfile] = useState(null);
   const [unlockingProfile, setUnlockingProfile] = useState(null);
   const navigate = useNavigate();
+  const { triggerTransition } = useTransition();
 
   // Fetch profiles from Firestore
   useEffect(() => {
@@ -107,9 +109,11 @@ const ProfileGate = () => {
     // Dispatch custom event to notify App.tsx of profile change
     window.dispatchEvent(new Event("profileChanged"));
 
-    // Navigate to browse
-    navigate("/browse");
-    toast.success(`Chào mừng, ${profile.name}!`);
+    // Trigger cinematic transition - video plays BEFORE navigation starts
+    triggerTransition(() => {
+      navigate("/browse");
+      toast.success(`Chào mừng, ${profile.name}!`);
+    });
   };
 
   // Handle delete profile (NO event parameter - direct call)
