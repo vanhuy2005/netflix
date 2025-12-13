@@ -1,9 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import YouTube from "react-youtube";
-import { motion } from "framer-motion";
-import { FaPlay, FaInfoCircle, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FaPlay,
+  FaInfoCircle,
+  FaVolumeUp,
+  FaVolumeMute,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
 import { IoAdd, IoCheckmark } from "react-icons/io5";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -17,7 +24,8 @@ import requests from "../../api/requests";
 
 const Billboard = () => {
   const navigate = useNavigate();
-  const [movie, setMovie] = useState(null);
+  const [movies, setMovies] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [trailerKey, setTrailerKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -25,143 +33,148 @@ const Billboard = () => {
   const [user, setUser] = useState(null);
   const [savedShows, setSavedShows] = useState([]);
   const [isInList, setIsInList] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+  const movie = useMemo(() => movies[currentIndex], [movies, currentIndex]);
 
+  // --- FETCH MOVIES (Optimized with error handling) ---
   useEffect(() => {
-    const fetchBillboardMovie = async () => {
+    let isMounted = true;
+
+    const fetchCarouselMovies = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(requests.fetchTrending);
-
-        // FAIL-SAFE: Filter valid movies only
-        const validMovies = response.data.results.filter(
-          (movie) =>
-            movie.id &&
-            movie.backdrop_path &&
-            (movie.title || movie.name) &&
-            movie.overview
-        );
-
-        if (validMovies.length === 0) {
-          console.error("No valid movies found in trending");
-          setLoading(false);
-          return;
-        }
-
-        // Lấy phim ngẫu nhiên từ valid movies
-        const randomMovie =
-          validMovies[Math.floor(Math.random() * validMovies.length)];
-        setMovie(randomMovie);
-
-        // FAIL-SAFE: Fetch trailer with strict error handling
-        try {
-          const videosResponse = await axios.get(
-            `https://api.themoviedb.org/3/${
-              randomMovie.title ? "movie" : "tv"
-            }/${randomMovie.id}/videos`,
-            {
-              params: {
-                api_key: TMDB_API_KEY,
-                language: "en-US",
-              },
-              timeout: 5000, // 5 second timeout
-            }
-          );
-
-          const videos = videosResponse.data.results || [];
-          const trailer =
-            videos.find((v) => v.type === "Trailer" && v.site === "YouTube") ||
-            videos.find((v) => v.type === "Teaser" && v.site === "YouTube") ||
-            videos.find((v) => v.site === "YouTube");
-
-          if (trailer) {
-            setTrailerKey(trailer.key);
-            // Delay showing video to allow smooth initial render
-            setTimeout(() => setShowVideo(true), 1000);
-          } else {
-            // FAIL-SAFE: No trailer found -> Show backdrop image only
-            console.log("No trailer available, showing backdrop only");
-          }
-        } catch (trailerError) {
-          // FAIL-SAFE: Trailer fetch failed -> Silently fallback to backdrop
-          console.log(
-            "Trailer fetch failed, using backdrop:",
-            trailerError.message
-          );
-          // Do NOT show error toast - just show backdrop image
-        }
-      } catch (error) {
-        console.error("Error fetching billboard movie:", error);
-        // FAIL-SAFE: Set a fallback movie if main fetch fails
-        setMovie({
-          id: "fallback",
-          title: "Netflix Originals",
-          overview: "Explore trending movies and series",
-          backdrop_path: "/assets/hero_banner.jpg",
+        const response = await axios.get(requests.fetchTrending, {
+          timeout: 8000,
         });
+
+        if (!isMounted) return;
+
+        const validMovies = response.data.results
+          .filter(
+            (m) => m.id && m.backdrop_path && (m.title || m.name) && m.overview
+          )
+          .slice(0, 8);
+
+        setMovies(validMovies.length > 0 ? validMovies : []);
+      } catch (error) {
+        console.error("Billboard fetch error:", error.message);
+        if (isMounted) setMovies([]);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    fetchBillboardMovie();
-  }, [TMDB_API_KEY]);
+    fetchCarouselMovies();
 
-  // Listen to auth state changes
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // --- FETCH TRAILER (Optimized to prevent unnecessary re-renders) ---
+  useEffect(() => {
+    if (!movie?.id) return;
+
+    let isMounted = true;
+    let videoTimer = null;
+
+    const fetchTrailer = async () => {
+      try {
+        // Reset states immediately on movie change
+        setShowVideo(false);
+        setTrailerKey(null);
+
+        const res = await axios.get(
+          `https://api.themoviedb.org/3/${movie.title ? "movie" : "tv"}/${
+            movie.id
+          }/videos`,
+          {
+            params: { api_key: TMDB_API_KEY, language: "en-US" },
+            timeout: 5000,
+          }
+        );
+
+        if (!isMounted) return;
+
+        const trailer =
+          res.data.results.find(
+            (v) => v.site === "YouTube" && v.type === "Trailer"
+          ) || res.data.results.find((v) => v.site === "YouTube");
+
+        if (trailer && isMounted) {
+          setTrailerKey(trailer.key);
+          videoTimer = setTimeout(() => {
+            if (isMounted) setShowVideo(true);
+          }, 1000);
+        }
+      } catch (e) {
+        console.log("Trailer fetch failed:", e.message);
+      }
+    };
+
+    fetchTrailer();
+
+    return () => {
+      isMounted = false;
+      if (videoTimer) clearTimeout(videoTimer);
+    };
+  }, [movie?.id, TMDB_API_KEY]);
+
+  // --- CAROUSEL NAVIGATION (Memoized callbacks) ---
+  const handleNext = useCallback(() => {
+    if (isTransitioning || movies.length <= 1) return;
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => (prev + 1) % movies.length);
+    setTimeout(() => setIsTransitioning(false), 800);
+  }, [isTransitioning, movies.length]);
+
+  const handlePrev = useCallback(() => {
+    if (isTransitioning || movies.length <= 1) return;
+    setIsTransitioning(true);
+    setCurrentIndex((prev) => (prev - 1 + movies.length) % movies.length);
+    setTimeout(() => setIsTransitioning(false), 800);
+  }, [isTransitioning, movies.length]);
+
+  // --- AUTO PLAY CAROUSEL (30 seconds) ---
+  useEffect(() => {
+    if (movies.length <= 1) return;
+    const timer = setTimeout(handleNext, 30000);
+    return () => clearTimeout(timer);
+  }, [currentIndex, movies.length, handleNext]);
+
+  // --- AUTH & LIST LOGIC ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed:", currentUser?.email || "No user");
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Subscribe to saved shows for real-time updates
   useEffect(() => {
-    // CRITICAL FIX: Only subscribe when user exists AND profile is selected
     if (!user) {
       setSavedShows([]);
       return;
     }
-
-    // Check if profile exists before subscribing
     const currentProfile = localStorage.getItem("current_profile");
-    if (!currentProfile) {
-      console.log("No profile selected, skipping savedShows subscription");
-      setSavedShows([]);
-      return;
-    }
-
+    if (!currentProfile) return;
     const profile = JSON.parse(currentProfile);
-    console.log("Subscribing to saved shows for profile:", profile.id);
 
     try {
-      const unsubscribe = subscribeToSavedShows(user, profile.id, (shows) => {
-        console.log("Saved shows updated:", shows.length, "movies");
-        setSavedShows(shows);
-      });
-
-      return () => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      };
+      const unsubscribe = subscribeToSavedShows(user, profile.id, (shows) =>
+        setSavedShows(shows)
+      );
+      return () => unsubscribe && unsubscribe();
     } catch (error) {
-      console.error("Error subscribing to saved shows:", error);
-      setSavedShows([]);
+      console.error(error);
     }
   }, [user]);
 
-  // Check if current movie is in saved list
   useEffect(() => {
     if (movie && savedShows.length > 0) {
       const inList = savedShows.some(
         (show) => String(show.id) === String(movie.id)
-      );
-      console.log(
-        `Movie ${movie.id} (${movie.title}) is ${inList ? "IN" : "NOT IN"} list`
       );
       setIsInList(inList);
     } else {
@@ -169,7 +182,31 @@ const Billboard = () => {
     }
   }, [movie, savedShows]);
 
-  // YouTube player options for full-bleed video
+  const handleListToggle = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    const currentProfile = localStorage.getItem("current_profile");
+    if (!currentProfile) {
+      navigate("/profiles");
+      return;
+    }
+    const profile = JSON.parse(currentProfile);
+
+    try {
+      if (isInList) await removeShow(user, profile.id, movie.id);
+      else await saveShow(user, profile.id, movie);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const truncateString = (str, num) => {
+    if (!str) return "";
+    return str.length > num ? str.slice(0, num) + "..." : str;
+  };
+
   const opts = {
     playerVars: {
       autoplay: 1,
@@ -178,7 +215,7 @@ const Billboard = () => {
       showinfo: 0,
       mute: isMuted ? 1 : 0,
       loop: 1,
-      playlist: trailerKey, // Required for loop to work
+      playlist: trailerKey,
       modestbranding: 1,
       iv_load_policy: 3,
       disablekb: 1,
@@ -189,206 +226,175 @@ const Billboard = () => {
 
   if (loading || !movie) {
     return (
-      <div className="relative h-[56.25vw] flex items-center justify-center bg-netflix-deepBlack">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-netflix-red"></div>
-      </div>
+      <div className="h-screen min-h-[600px] bg-netflix-deepBlack animate-pulse" />
     );
   }
 
-  const truncateString = (str, num) => {
-    if (!str) return "";
-    if (str.length <= num) return str;
-    return str.slice(0, num) + "...";
-  };
-
-  // Handle add/remove from My List
-  const handleListToggle = async () => {
-    if (!user || !user.uid) {
-      console.warn("No user logged in, redirecting to login");
-      navigate("/login");
-      return;
-    }
-
-    // Get current profile
-    const currentProfile = localStorage.getItem("current_profile");
-    if (!currentProfile) {
-      console.error("No profile selected");
-      toast.error("Vui lòng chọn hồ sơ trước");
-      navigate("/profiles");
-      return;
-    }
-
-    if (!movie || !movie.id) {
-      console.error("No movie data available");
-      return;
-    }
-
-    const profile = JSON.parse(currentProfile);
-    console.log(
-      `Toggle list for movie: ${movie.title} (ID: ${movie.id}), profile: ${
-        profile.id
-      }, currently ${isInList ? "IN" : "NOT IN"} list`
-    );
-
-    try {
-      if (isInList) {
-        console.log("Removing from list...");
-        await removeShow(user, profile.id, movie.id);
-        // Toast already shown in removeShow function
-      } else {
-        console.log("Adding to list...");
-        await saveShow(user, profile.id, movie);
-        // Toast already shown in saveShow function
-      }
-    } catch (error) {
-      console.error("Error toggling list:", error);
-    }
-  };
-
   return (
-    <div className="relative h-[56.25vw] w-full overflow-hidden">
-      {/* 1. VIDEO BACKGROUND LAYER (Z-0) - Full Bleed with Scale Hack */}
-      {showVideo && trailerKey ? (
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-          {/* Scale & Center Container - THE "COVER" HACK */}
-          <div className="absolute top-1/2 left-1/2 w-[300%] h-[300%] -translate-x-1/2 -translate-y-1/2">
-            <YouTube
-              videoId={trailerKey}
-              className="w-full h-full"
-              iframeClassName="w-full h-full"
-              opts={opts}
-            />
-          </div>
-        </div>
-      ) : (
-        // Fallback to static image if no trailer
-        <div className="absolute inset-0">
-          <img
-            src={getImageUrl(
-              movie.backdrop_path || movie.poster_path,
-              "original"
-            )}
-            alt={movie.title || movie.name}
-            className="w-full h-full object-cover object-center"
-          />
-        </div>
-      )}
-
-      {/* 2. GRADIENT OVERLAY LAYERS (Z-10) */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-transparent to-transparent z-10" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent z-10" />
-
-      {/* 3. CONTENT LAYER (Z-20) */}
-      <div className="absolute top-[30%] md:top-[40%] left-[4%] md:left-[60px] z-20 w-[90%] md:w-[40%]">
+    // FULL VIEWPORT: Billboard chiếm toàn bộ màn hình, không thấy row khi ở đầu trang
+    <div className="relative w-full h-screen min-h-[600px] overflow-hidden group bg-netflix-deepBlack">
+      <AnimatePresence mode="wait">
         <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          key={currentIndex}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0"
         >
-          {/* Title */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 drop-shadow-2xl">
-            {movie.title || movie.name}
-          </h1>
-
-          {/* Match Score - Netflix 2025 Style */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-[#46d369] font-bold text-xl">
-              {Math.round(movie.vote_average * 10)}% Phù hợp
-            </span>
+          {/* 1. VIDEO/IMAGE BACKGROUND - PRODUCTION FIX: Proper aspect-ratio wrapper */}
+          <div className="absolute inset-0 overflow-hidden">
+            {showVideo && trailerKey ? (
+              // FIX: Use proper aspect-ratio scaling instead of arbitrary 300% width
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className="relative w-full h-full min-w-full min-h-full"
+                  style={{ aspectRatio: "16/9" }}
+                >
+                  <YouTube
+                    videoId={trailerKey}
+                    className="absolute inset-0 w-full h-full scale-150"
+                    iframeClassName="w-full h-full"
+                    opts={opts}
+                  />
+                </div>
+              </div>
+            ) : (
+              <img
+                src={getImageUrl(
+                  movie?.backdrop_path || movie?.poster_path,
+                  "original"
+                )}
+                alt={movie?.title || movie?.name}
+                className="w-full h-full object-cover object-top md:object-center"
+              />
+            )}
           </div>
 
-          {/* Metadata */}
-          <div className="flex items-center gap-3 text-gray-300 text-base mb-6">
-            {movie.release_date && (
-              <span className="font-medium">
-                {new Date(
-                  movie.release_date || movie.first_air_date
-                ).getFullYear()}
-              </span>
-            )}
-            {movie.adult !== undefined && (
-              <>
-                <span className="text-gray-500">•</span>
-                <span className="px-2 py-0.5 border border-gray-500 text-xs font-semibold">
-                  {movie.adult ? "18+" : "13+"}
+          {/* 2. GRADIENT OVERLAYS */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#141414]/90 via-[#141414]/40 to-transparent z-10" />
+          <div className="absolute bottom-0 w-full h-[25%] bg-gradient-to-t from-[#141414] via-[#141414]/80 to-transparent z-10" />
+
+          {/* 3. CONTENT - Nội dung nằm ở góc trái dưới, compact hơn */}
+          <div className="absolute inset-0 z-20 flex flex-col justify-end pb-[15%] md:pb-[12%] lg:pb-[10%] px-[4%] md:px-[60px]">
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+              className="max-w-md md:max-w-lg lg:max-w-xl w-full"
+            >
+              {/* TITLE: Compact hơn, chuyên nghiệp */}
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-black mb-2 md:mb-4 drop-shadow-2xl leading-tight text-white">
+                {movie?.title || movie?.name}
+              </h1>
+
+              {/* METADATA ROW */}
+              <div className="flex items-center gap-2 md:gap-3 mb-3 text-[10px] md:text-sm font-medium">
+                {movie?.vote_average && (
+                  <span className="text-[#46d369]">
+                    {Math.round(movie.vote_average * 10)}% Phù hợp
+                  </span>
+                )}
+                <span className="text-gray-300">
+                  {movie?.release_date?.substring(0, 4) ||
+                    movie?.first_air_date?.substring(0, 4)}
                 </span>
-              </>
-            )}
-          </div>
+                <span className="border border-gray-400 px-1.5 py-0.5 text-gray-300 text-[9px] md:text-[10px] uppercase">
+                  {movie?.adult ? "18+" : "HD"}
+                </span>
+              </div>
 
-          {/* Overview */}
-          <p className="text-base md:text-lg text-gray-200 mb-8 line-clamp-3 max-w-xl drop-shadow-lg leading-relaxed">
-            {truncateString(movie.overview, 150)}
-          </p>
+              {/* OVERVIEW: Compact hơn */}
+              <p className="text-xs md:text-sm lg:text-base text-white/90 mb-4 line-clamp-2 md:line-clamp-3 drop-shadow-md">
+                {truncateString(movie?.overview, 120)}
+              </p>
 
-          {/* Buttons */}
-          <div className="flex items-center gap-4">
-            {/* Play Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate(`/player/${movie.id}`)}
-              className="flex items-center gap-3 bg-white text-black px-8 md:px-10 py-3 md:py-4 rounded font-bold text-lg md:text-xl hover:bg-white/90 transition-all shadow-2xl"
-            >
-              <FaPlay className="text-xl md:text-2xl" />
-              <span>Phát</span>
-            </motion.button>
+              {/* BUTTONS - Bo tròn góc */}
+              <div className="flex items-center gap-2 md:gap-3">
+                <button
+                  onClick={() => navigate(`/player/${movie?.id}`)}
+                  className="flex items-center gap-1.5 md:gap-2 bg-white text-black px-3 md:px-5 py-1.5 md:py-2 hover:bg-white/90 transition font-bold text-xs md:text-sm"
+                >
+                  <FaPlay className="text-sm md:text-base" /> Phát
+                </button>
 
-            {/* Add to My List Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleListToggle}
-              className="flex items-center justify-center bg-white/30 hover:bg-white/20 text-white w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-white/50 transition-all backdrop-blur-sm shadow-lg"
-              title={isInList ? "Xóa khỏi danh sách" : "Thêm vào danh sách"}
-            >
-              {isInList ? (
-                <IoCheckmark className="text-2xl md:text-3xl" />
-              ) : (
-                <IoAdd className="text-2xl md:text-3xl" />
-              )}
-            </motion.button>
+                <button
+                  onClick={handleListToggle}
+                  className="w-8 h-8 md:w-10 md:h-10 border-2 border-white/40 rounded-full flex items-center justify-center text-white hover:border-white hover:bg-white/10 transition backdrop-blur-sm"
+                >
+                  {isInList ? <IoCheckmark size={16} /> : <IoAdd size={16} />}
+                </button>
 
-            {/* More Info Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-3 bg-gray-500/70 text-white px-6 md:px-8 py-3 md:py-4 rounded font-bold text-lg hover:bg-gray-500/50 transition-all backdrop-blur-sm shadow-lg"
-            >
-              <FaInfoCircle className="text-xl" />
-              <span>Thông tin khác</span>
-            </motion.button>
+                <button className="flex items-center gap-1.5 md:gap-2 bg-gray-500/40 text-white px-3 md:px-5 py-1.5 md:py-2 hover:bg-gray-500/30 transition font-bold text-xs md:text-sm backdrop-blur-md">
+                  <FaInfoCircle className="text-sm md:text-base" />
+                  <span className="hidden md:inline">Thông tin khác</span>
+                </button>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
-      </div>
+      </AnimatePresence>
 
-      {/* 4. VOLUME CONTROL & AGE RATING (Z-30) */}
-      {showVideo && trailerKey && (
-        <div className="absolute right-[4%] md:right-[60px] bottom-[20%] z-30 flex items-center gap-4">
-          {/* Mute/Unmute Button */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+      {/* 4. VOLUME CONTROL & AGE RATING */}
+      <div className="absolute right-[4%] md:right-[60px] bottom-[20%] md:bottom-[18%] z-30 flex items-center gap-2">
+        {showVideo && trailerKey && (
+          <button
             onClick={() => setIsMuted(!isMuted)}
-            className="border-2 border-white/50 rounded-full p-2 md:p-3 hover:bg-white/10 text-white transition-all backdrop-blur-sm"
+            className="w-9 h-9 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:border-white transition backdrop-blur-sm"
             title={isMuted ? "Bật tiếng" : "Tắt tiếng"}
           >
             {isMuted ? (
-              <FaVolumeMute className="text-xl md:text-2xl" />
+              <FaVolumeMute className="text-base md:text-lg" />
             ) : (
-              <FaVolumeUp className="text-xl md:text-2xl" />
+              <FaVolumeUp className="text-base md:text-lg" />
             )}
-          </motion.button>
+          </button>
+        )}
+        <div className="bg-gray-600/60 border-l-[3px] border-white px-2.5 md:px-3 py-1 md:py-1.5 text-white text-[11px] md:text-xs font-semibold rounded-sm">
+          {movie?.adult ? "18+" : "13+"}
+        </div>
+      </div>
 
-          {/* Age Rating Badge */}
-          <div className="bg-gray-500/50 border-l-4 border-white px-4 py-2 text-white text-sm font-bold backdrop-blur-sm">
-            {movie.adult ? "18+" : "13+"}
+      {/* 5. CAROUSEL INDICATORS */}
+      {movies.length > 1 && (
+        <div className="absolute bottom-[12%] md:bottom-[10%] right-[4%] md:right-[60px] z-30 flex items-center gap-2">
+          <button
+            onClick={handlePrev}
+            disabled={isTransitioning}
+            className="w-9 h-9 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:border-white transition disabled:opacity-40"
+          >
+            <FaChevronLeft size={14} />
+          </button>
+
+          <div className="flex items-center gap-1">
+            {movies.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (!isTransitioning && idx !== currentIndex) {
+                    setIsTransitioning(true);
+                    setCurrentIndex(idx);
+                    setTimeout(() => setIsTransitioning(false), 800);
+                  }
+                }}
+                className={`h-[3px] rounded-full transition-all duration-300 ${
+                  idx === currentIndex
+                    ? "w-5 bg-white"
+                    : "w-[6px] bg-gray-500 hover:bg-gray-400"
+                }`}
+              />
+            ))}
           </div>
+
+          <button
+            onClick={handleNext}
+            disabled={isTransitioning}
+            className="w-9 h-9 md:w-10 md:h-10 border border-white/40 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:border-white transition disabled:opacity-40"
+          >
+            <FaChevronRight size={14} />
+          </button>
         </div>
       )}
-
-      {/* Fade effect at bottom - Blend with rows below */}
-      <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-netflix-deepBlack to-transparent z-10" />
     </div>
   );
 };

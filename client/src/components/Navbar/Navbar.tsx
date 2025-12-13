@@ -225,7 +225,7 @@ const Navbar = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 w-full z-50 px-8 py-5 transition-all duration-500"
+      className="fixed top-0 left-0 w-full z-50 px-4 md:px-8 py-3 transition-all duration-500"
       style={{
         background: scrolled
           ? "linear-gradient(to bottom, rgba(20, 20, 20, 0.98) 0%, rgba(20, 20, 20, 0.95) 70%)" // Khi cuộn: Gradient đậm hơn
@@ -234,18 +234,18 @@ const Navbar = () => {
     >
       <div className="flex items-center justify-between max-w-[1920px] mx-auto">
         {/* Logo */}
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-6">
           <motion.img
             src="/assets/logo.png"
             alt="Netflix"
             onClick={() => navigate("/browse")}
-            className="h-7 md:h-9 cursor-pointer"
+            className="h-5 md:h-7 cursor-pointer"
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 300 }}
           />
 
           {/* Navigation Links - Netflix Style */}
-          <div className="hidden md:flex space-x-5">
+          <div className="hidden md:flex space-x-4">
             {[
               { name: "Trang chủ", path: "/browse" },
               { name: "Phim truyền hình", path: "#" },
@@ -262,7 +262,7 @@ const Navbar = () => {
                     navigate(item.path);
                   }
                 }}
-                className="text-[16px] font-medium text-[#e5e5e5] hover:text-white transition-colors duration-300"
+                className="text-[13px] font-medium text-[#e5e5e5] hover:text-white transition-colors duration-300"
                 whileHover={{ scale: 1.02 }}
               >
                 {item.name}

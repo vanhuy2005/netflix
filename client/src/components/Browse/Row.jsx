@@ -83,17 +83,19 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
 
   if (loading) {
     return (
-      <div className="w-full mb-8 md:mb-12">
-        <h2 className="text-xl md:text-2xl font-bold mb-4">{title}</h2>
-        <div className="flex gap-2 overflow-hidden">
-          {[1, 2, 3, 4, 5].map((i) => (
+      <div className="w-full mb-4 md:mb-8">
+        <h2 className="text-sm md:text-lg lg:text-xl font-semibold mb-2 pl-[4%] md:pl-[60px]">
+          {title}
+        </h2>
+        <div className="flex gap-2 overflow-hidden pl-[4%] md:pl-[60px]">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div
               key={i}
               className={`${
                 isLarge
-                  ? "min-w-[150px] md:min-w-[200px] aspect-[2/3]"
-                  : "min-w-[250px] md:min-w-[300px] aspect-video"
-              } bg-netflix-darkGray animate-pulse rounded-md`}
+                  ? "min-w-[120px] md:min-w-[150px] aspect-[2/3]"
+                  : "min-w-[180px] md:min-w-[220px] aspect-video"
+              } animate-shimmer rounded-md`}
             />
           ))}
         </div>
@@ -102,54 +104,88 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
   }
 
   return (
-    <div className="w-full relative z-10 group/row">
-      {/* Row Title - Aligned with Billboard content */}
-      <h2 className="text-lg md:text-xl font-medium mb-2 text-white pl-[4%] md:pl-[60px]">
+    <div className="w-full relative z-10 group/row mb-2 md:mb-4 hover:z-50">
+      {/* Row Title - Netflix style */}
+      <h2 className="text-sm md:text-base lg:text-lg font-bold mb-1 md:mb-2 text-white pl-[4%] md:pl-[60px] hover:text-gray-300 transition-colors cursor-pointer">
         {title}
+        <motion.span
+          initial={{ opacity: 0, x: -10 }}
+          whileHover={{ opacity: 1, x: 0 }}
+          className="hidden group-hover/row:inline-flex items-center gap-1 text-[#ffffff] text-xs ml-2"
+        >
+          <motion.span
+            initial={{ x: -5 }}
+            animate={{ x: 0 }}
+            transition={{
+              repeat: Infinity,
+              duration: 1.5,
+              ease: "easeInOut",
+              repeatType: "reverse",
+            }}
+          >
+            →
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+          >
+            Xem tất cả
+          </motion.span>
+        </motion.span>
       </h2>
 
       {/* Movies Container with Navigation */}
       <div className="relative">
-        {/* Left Arrow */}
+        {/* Left Arrow - Full Height, Subtle */}
         {showLeftArrow && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            whileHover={{ scale: 1.1 }}
+          <button
             onClick={() => handleScroll("left")}
-            className="absolute left-0 top-0 bottom-0 z-20 w-12 md:w-16 bg-black/80 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black/90"
+            className="absolute left-0 top-0 bottom-0 z-40 w-10 md:w-14 bg-gradient-to-r from-black/80 to-transparent flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-all duration-300"
           >
-            <FaChevronLeft className="text-3xl text-white drop-shadow-lg" />
-          </motion.button>
+            <motion.div
+              whileHover={{ scale: 1.2 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <FaChevronLeft className="text-xl md:text-2xl text-white drop-shadow-lg" />
+            </motion.div>
+          </button>
         )}
 
-        {/* Movies Scroll Container - Full Width with Strategic Padding */}
+        {/* Movies Scroll Container */}
+        {/* py-20 -my-20: Expanded safe zone for larger card hover expansion (1.8x scale) */}
         <div
           ref={rowRef}
-          className="flex gap-2 md:gap-4 overflow-x-scroll scrollbar-hide scroll-smooth w-full pl-[4%] md:pl-[60px] pr-[4%] md:pr-[60px] py-2"
+          className="flex gap-1.5 md:gap-2 overflow-x-scroll scrollbar-hide scroll-smooth w-full pl-[4%] md:pl-[60px] pr-[4%] md:pr-[60px] py-20 -my-20"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
         >
-          {movies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} isLarge={isLarge} />
+          {movies.map((movie, index) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              isLarge={isLarge}
+              isFirst={index === 0}
+              isLast={index === movies.length - 1}
+            />
           ))}
         </div>
 
-        {/* Right Arrow */}
+        {/* Right Arrow - Full Height, Subtle */}
         {showRightArrow && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            whileHover={{ scale: 1.1 }}
+          <button
             onClick={() => handleScroll("right")}
-            className="absolute right-0 top-0 bottom-0 z-20 w-12 md:w-16 bg-black/80 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black/90"
+            className="absolute right-0 top-0 bottom-0 z-40 w-10 md:w-14 bg-gradient-to-l from-black/80 to-transparent flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-all duration-300"
           >
-            <FaChevronRight className="text-3xl text-white drop-shadow-lg" />
-          </motion.button>
+            <motion.div
+              whileHover={{ scale: 1.2 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <FaChevronRight className="text-xl md:text-2xl text-white drop-shadow-lg" />
+            </motion.div>
+          </button>
         )}
       </div>
     </div>

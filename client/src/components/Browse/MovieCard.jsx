@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { FaPlay } from "react-icons/fa";
+import axios from "axios";
+import YouTube from "react-youtube";
+import { FaPlay, FaChevronDown } from "react-icons/fa";
 import { IoAdd, IoCheckmark } from "react-icons/io5";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -12,11 +14,26 @@ import {
 } from "../../config/firebase";
 import { getImageUrl } from "../../utils/tmdbApi";
 
-const MovieCard = ({ movie, isLarge = false }) => {
+const MovieCard = ({
+  movie,
+  isLarge = false,
+  isFirst = false,
+  isLast = false,
+}) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [savedShows, setSavedShows] = useState([]);
+
+  // Hover expansion state
+  const [isHovered, setIsHovered] = useState(false);
+  const [showExpandedCard, setShowExpandedCard] = useState(false);
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [isLoadingTrailer, setIsLoadingTrailer] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const hoverTimerRef = useRef(null);
+
+  const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
   // Listen to auth state
   useEffect(() => {
@@ -29,18 +46,13 @@ const MovieCard = ({ movie, isLarge = false }) => {
 
   // Subscribe to saved shows for real-time updates
   useEffect(() => {
-    // CRITICAL FIX: Only subscribe when user exists AND profile is selected
     if (!user) {
       setSavedShows([]);
       return;
     }
 
-    // Check if profile exists before subscribing
     const currentProfile = localStorage.getItem("current_profile");
     if (!currentProfile) {
-      console.log(
-        "No profile selected, skipping savedShows subscription in MovieCard"
-      );
       setSavedShows([]);
       return;
     }
@@ -58,7 +70,7 @@ const MovieCard = ({ movie, isLarge = false }) => {
         }
       };
     } catch (error) {
-      console.error("Error subscribing to saved shows in MovieCard:", error);
+      console.error("Error subscribing to saved shows:", error);
       setSavedShows([]);
     }
   }, [user]);
@@ -75,28 +87,86 @@ const MovieCard = ({ movie, isLarge = false }) => {
     }
   }, [movie, savedShows]);
 
+  // Fetch trailer logic
+  const fetchTrailer = async () => {
+    if (!movie?.id || trailerKey) return;
+
+    setIsLoadingTrailer(true);
+    try {
+      const response = await axios.get(
+        `https://api.themoviedb.org/3/${movie.title ? "movie" : "tv"}/${
+          movie.id
+        }/videos`,
+        {
+          params: {
+            api_key: TMDB_API_KEY,
+            language: "en-US",
+          },
+          timeout: 3000,
+        }
+      );
+
+      const videos = response.data.results || [];
+      const trailer =
+        videos.find((v) => v.type === "Trailer" && v.site === "YouTube") ||
+        videos.find((v) => v.type === "Teaser" && v.site === "YouTube") ||
+        videos.find((v) => v.site === "YouTube");
+
+      if (trailer) {
+        setTrailerKey(trailer.key);
+      }
+    } catch (error) {
+      console.log("Trailer fetch failed:", error.message);
+    } finally {
+      setIsLoadingTrailer(false);
+    }
+  };
+
+  // PRODUCTION: 800ms Debounce to prevent API spam on rapid hover
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+
+    // CRITICAL FIX: 800ms debounce prevents network congestion
+    // Only fetch trailer if user hovers intentionally (not quick swipes)
+    hoverTimerRef.current = setTimeout(() => {
+      setShowExpandedCard(true);
+      fetchTrailer();
+    }, 800);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setShowExpandedCard(false);
+    setTrailerKey(null);
+
+    // CRITICAL: Cancel pending timer immediately to prevent memory leaks & unwanted requests
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  };
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
   const handlePlayClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
     navigate(`/player/${movie.id}`);
   };
 
-  // Handle toggle My List with proper event handling
   const handleToggleList = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    if (!user) {
-      return;
-    }
-
-    // Get current profile
+    if (!user) return;
     const currentProfile = localStorage.getItem("current_profile");
-    if (!currentProfile) {
-      console.error("No profile selected in MovieCard");
-      return;
-    }
-
+    if (!currentProfile) return;
     const profile = JSON.parse(currentProfile);
 
     try {
@@ -113,104 +183,274 @@ const MovieCard = ({ movie, isLarge = false }) => {
   const imagePath = isLarge ? movie.poster_path : movie.backdrop_path;
   const fallbackImage = isLarge ? movie.backdrop_path : movie.poster_path;
 
+  // Options for YouTube Player - HIDE ALL BRANDING
+  const youtubeOpts = {
+    playerVars: {
+      autoplay: 1,
+      controls: 0,
+      rel: 0,
+      showinfo: 0,
+      mute: 1,
+      loop: 1,
+      modestbranding: 1,
+      iv_load_policy: 3,
+      disablekb: 1,
+      playsinline: 1,
+      origin: window.location.origin,
+      fs: 0,
+      cc_load_policy: 0,
+      start: 5, // Skip intro
+    },
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      whileHover={{ scale: 1.1, zIndex: 10 }}
-      transition={{
-        type: "spring",
-        stiffness: 300,
-        damping: 20,
-      }}
-      className={`relative group cursor-pointer flex-shrink-0 ${
-        isLarge ? "w-[150px] md:w-[200px]" : "w-[250px] md:w-[300px]"
+    <div
+      className={`relative cursor-pointer flex-shrink-0 ${
+        isLarge
+          ? "w-[110px] md:w-[130px] lg:w-[145px]"
+          : "w-[160px] md:w-[200px] lg:w-[230px]"
       }`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{ zIndex: showExpandedCard ? 9999 : 1 }}
     >
-      {/* Movie Image */}
-      <div
-        className={`relative overflow-hidden rounded-md ${
+      {/* --- TRẠNG THÁI TĨNH (Static State) --- */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        className={`relative w-full overflow-hidden rounded-sm ${
           isLarge ? "aspect-[2/3]" : "aspect-video"
         }`}
       >
+        {!imageLoaded && (
+          <div className="absolute inset-0 animate-shimmer rounded-sm" />
+        )}
         <img
           src={getImageUrl(
             imagePath || fallbackImage,
             isLarge ? "w500" : "w780"
           )}
           alt={movie.title || movie.name}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-all duration-300 ${
+            imageLoaded ? "opacity-100" : "opacity-0"
+          } ${isHovered ? "brightness-75" : "brightness-100"}`}
           loading="lazy"
+          onLoad={() => setImageLoaded(true)}
           onError={(e) => {
             e.target.src = getImageUrl(
               fallbackImage,
               isLarge ? "w500" : "w780"
             );
+            setImageLoaded(true);
           }}
         />
+      </motion.div>
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-            {/* Title */}
-            <h3 className="text-white font-bold text-sm md:text-base mb-2 line-clamp-1">
-              {movie.title || movie.name}
-            </h3>
-
-            {/* Metadata */}
-            <div className="flex items-center gap-2 mb-3 text-xs">
-              {movie.vote_average && (
-                <span className="text-green-500 font-semibold">
-                  {Math.round(movie.vote_average * 10)}% Phù hợp
-                </span>
-              )}
-              {movie.release_date && (
-                <span className="text-netflix-lightGray">
-                  {new Date(
-                    movie.release_date || movie.first_air_date
-                  ).getFullYear()}
-                </span>
-              )}
-              {movie.adult !== undefined && (
-                <span className="border border-gray-400 px-1.5 py-0.5 text-[10px]">
-                  {movie.adult ? "18+" : "13+"}
-                </span>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              {/* Play Button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handlePlayClick}
-                className="p-2 md:p-2.5 bg-white rounded-full hover:bg-white/80 transition shadow-lg"
-                title="Phát"
+      {/* --- EXPANDED STATE: Netflix/VieON Style --- */}
+      <AnimatePresence>
+        {showExpandedCard && (
+          <motion.div
+            initial={{ opacity: 0, scale: 1 }}
+            animate={{
+              opacity: 1,
+              scale: isLarge ? 1.4 : 1.6,
+              y: -20,
+              x: isLast ? (isLarge ? -20 : -40) : 0,
+            }}
+            exit={{ opacity: 0, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className={`absolute top-0 left-0 w-full z-[9999] ${
+              isLarge ? "aspect-[2/3]" : "aspect-video"
+            }`}
+            style={{
+              transformOrigin: isFirst
+                ? "left top"
+                : isLast
+                ? "right top"
+                : "center top",
+            }}
+          >
+            <div
+              className={`relative w-full overflow-hidden rounded-sm shadow-2xl shadow-black ring-1 ring-white/10 ${
+                isLarge ? "aspect-[2/3]" : "aspect-video"
+              }`}
+            >
+              {/* ===== VIDEO/IMAGE CONTAINER - FULL COVERAGE ===== */}
+              <div
+                className={`relative w-full overflow-hidden ${
+                  isLarge ? "h-full" : "aspect-video"
+                }`}
               >
-                <FaPlay className="text-black text-xs md:text-sm" />
-              </motion.button>
-
-              {/* Add/Remove from My List Button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handleToggleList}
-                className="p-2 md:p-2.5 bg-transparent border-2 border-white rounded-full hover:bg-white/20 transition-all shadow-lg"
-                title={isSaved ? "Xóa khỏi danh sách" : "Thêm vào danh sách"}
-              >
-                {isSaved ? (
-                  <IoCheckmark className="text-white text-xs md:text-sm" />
+                {/* Video hoặc Backdrop Image */}
+                {isLarge ? (
+                  // Netflix Originals: Always show poster, never fetch trailer
+                  <img
+                    src={getImageUrl(movie.poster_path, "w780")}
+                    alt={movie.title || movie.name}
+                    className="w-full h-full object-cover"
+                   />
+                ) : trailerKey && !isLoadingTrailer ? (
+                  <>
+                    {/* YouTube được scale để ẩn UI branding */}
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{
+                        top: "-15%",
+                        left: "-15%",
+                        width: "130%",
+                        height: "130%",
+                      }}
+                    >
+                      <YouTube
+                        videoId={trailerKey}
+                        className="w-full h-full"
+                        iframeClassName="w-full h-full"
+                        opts={youtubeOpts}
+                      />
+                    </div>
+                  </>
                 ) : (
-                  <IoAdd className="text-white text-xs md:text-sm" />
+                  <img
+                    src={getImageUrl(
+                      movie.backdrop_path || movie.poster_path,
+                      "w780"
+                    )}
+                    alt={movie.title || movie.name}
+                    className="w-full h-full object-cover"
+                  />
                 )}
-              </motion.button>
+
+                {/* ===== OVERLAY GRADIENT - Vừa khít với movie card ===== */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+
+                {/* ===== CONTENT OVERLAY - VieON Style ===== */}
+                <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3">
+                  {/* Action Buttons Row - Icon-only for Netflix Originals, Text for regular */}
+                  <div className="flex items-center justify-center gap-1 md:gap-1.5 mb-1.5 md:mb-2 px-2">
+                    {isLarge ? (
+                      // NETFLIX ORIGINALS: Icon-only circular buttons
+                      <>
+                        {/* Play Button - Circular */}
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={handlePlayClick}
+                          className="w-4 h-4 md:w-5 md:h-5 bg-white rounded-full flex items-center justify-center hover:bg-white/90 transition-all shadow-lg"
+                        >
+                          <FaPlay className="text-black text-[5px] md:text-[6px] ml-0.5" />
+                        </motion.button>
+
+                        {/* Add to List Button - Circular */}
+                        <motion.button
+                          whileHover={{ scale: 1.1, borderColor: "#fff" }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={handleToggleList}
+                          className="w-4 h-4 md:w-5 md:h-5 bg-black/50 border border-gray-400 rounded-full flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
+                        >
+                          {isSaved ? (
+                            <IoCheckmark className="text-white text-[7px] md:text-[8px]" />
+                          ) : (
+                            <IoAdd className="text-white text-[7px] md:text-[8px]" />
+                          )}
+                        </motion.button>
+
+                        {/* Info Button - Circular */}
+                        <motion.button
+                          whileHover={{ scale: 1.1, borderColor: "#fff" }}
+                          whileTap={{ scale: 0.9 }}
+                          className="w-4 h-4 md:w-5 md:h-5 bg-black/50 border border-gray-400 rounded-full flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
+                        >
+                          <FaChevronDown className="text-white text-[5px] md:text-[6px]" />
+                        </motion.button>
+                      </>
+                    ) : (
+                      // REGULAR CARDS: Text buttons
+                      <>
+                        {/* Play Button - Primary with background */}
+                        <motion.button
+                          whileHover={{
+                            scale: 1.05,
+                            backgroundColor: "rgba(255,255,255,0.95)",
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handlePlayClick}
+                          className="flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 bg-white rounded-sm text-black hover:bg-white/90 transition-all shadow-md"
+                        >
+                          <FaPlay className="text-[6px] md:text-[7px]" />
+                          <span className="text-[7px] md:text-[9px] font-semibold whitespace-nowrap">
+                            Xem ngay
+                          </span>
+                        </motion.button>
+
+                        {/* Add to List Button - Secondary with border */}
+                        <motion.button
+                          whileHover={{ scale: 1.05, borderColor: "#fff" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleToggleList}
+                          className="flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 bg-transparent border border-gray-400 rounded-sm text-white hover:border-white transition-all"
+                        >
+                          {isSaved ? (
+                            <IoCheckmark className="text-[7px] md:text-[9px]" />
+                          ) : (
+                            <IoAdd className="text-[7px] md:text-[9px]" />
+                          )}
+                          <span className="text-[7px] md:text-[9px] font-medium whitespace-nowrap">
+                            Danh sách
+                          </span>
+                        </motion.button>
+
+                        {/* Info Button - Secondary with border */}
+                        <motion.button
+                          whileHover={{ scale: 1.05, borderColor: "#fff" }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 bg-transparent border border-gray-400 rounded-sm text-white hover:border-white transition-all"
+                        >
+                          <span className="text-[7px] md:text-[9px] font-bold">
+                            i
+                          </span>
+                          <span className="text-[7px] md:text-[9px] font-medium whitespace-nowrap">
+                            Chi tiết
+                          </span>
+                        </motion.button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Movie Metadata Row - VieON Style with separators */}
+                  <div className="flex items-center justify-center flex-wrap gap-x-1 text-[6px] md:text-[8px] text-gray-300">
+                    <span className="text-white/90">
+                      {new Date(
+                        movie.release_date || movie.first_air_date
+                      ).getFullYear()}
+                    </span>
+                    <span className="text-gray-500">|</span>
+                    <span>{movie.adult ? "18+" : "T13"}</span>
+                    <span className="text-gray-500">|</span>
+                    <span>
+                      {movie.original_language?.toUpperCase() === "VI"
+                        ? "Việt Nam"
+                        : movie.original_language?.toUpperCase() || "EN"}
+                    </span>
+                    <span className="text-gray-500">|</span>
+                    <span>HD</span>
+                    {movie.vote_average > 0 && (
+                      <>
+                        <span className="text-gray-500">|</span>
+                        <span className="text-[#46d369]">
+                          {movie.vote_average.toFixed(1)}★
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
