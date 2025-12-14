@@ -318,36 +318,36 @@ const MovieCard = ({
                 {/* Action Buttons Row */}
                 <div className="flex items-center justify-center gap-1 mb-1">
                   {isLarge ? (
-                    // NETFLIX ORIGINALS: Icon-only square buttons
+                    // NETFLIX ORIGINALS: Icon-only circular buttons
                     <>
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handlePlayClick}
-                        className="w-3.5 h-3.5 md:w-4 md:h-4 bg-white flex items-center justify-center hover:bg-white/90 transition-all shadow-lg"
+                        className="w-4 h-4 md:w-5 md:h-5 bg-white rounded-full flex items-center justify-center hover:bg-white/90 transition-all shadow-lg"
                       >
-                        <FaPlay className="text-black text-[4px] md:text-[5px] ml-0.5" />
+                        <FaPlay className="text-black text-[5px] md:text-[6px] ml-0.5" />
                       </motion.button>
 
                       <motion.button
                         whileHover={{ scale: 1.1, borderColor: "#fff" }}
                         whileTap={{ scale: 0.9 }}
                         onClick={handleToggleList}
-                        className="w-3.5 h-3.5 md:w-4 md:h-4 bg-black/50 border border-gray-400 flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
+                        className="w-4 h-4 md:w-5 md:h-5 bg-black/50 border border-gray-400 rounded-full flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
                       >
                         {isSaved ? (
-                          <IoCheckmark className="text-white text-[6px] md:text-[7px]" />
+                          <IoCheckmark className="text-white text-[7px] md:text-[8px]" />
                         ) : (
-                          <IoAdd className="text-white text-[6px] md:text-[7px]" />
+                          <IoAdd className="text-white text-[7px] md:text-[8px]" />
                         )}
                       </motion.button>
 
                       <motion.button
                         whileHover={{ scale: 1.1, borderColor: "#fff" }}
                         whileTap={{ scale: 0.9 }}
-                        className="w-3.5 h-3.5 md:w-4 md:h-4 bg-black/50 border border-gray-400 flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
+                        className="w-4 h-4 md:w-5 md:h-5 bg-black/50 border border-gray-400 rounded-full flex items-center justify-center hover:border-white transition-all backdrop-blur-sm"
                       >
-                        <FaChevronDown className="text-white text-[4px] md:text-[5px]" />
+                        <FaChevronDown className="text-white text-[5px] md:text-[6px]" />
                       </motion.button>
                     </>
                   ) : (
@@ -360,7 +360,7 @@ const MovieCard = ({
                         }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handlePlayClick}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-white rounded-sm text-black hover:bg-white/90 transition-all shadow-md"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-white text-black hover:bg-white/90 transition-all shadow-md"
                       >
                         <FaPlay className="text-[5px] md:text-[6px]" />
                         <span className="text-[7px] md:text-[8px] font-semibold whitespace-nowrap">
@@ -372,7 +372,7 @@ const MovieCard = ({
                         whileHover={{ scale: 1.05, borderColor: "#fff" }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleToggleList}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 rounded-sm text-white hover:border-white transition-all"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all"
                       >
                         {isSaved ? (
                           <IoCheckmark className="text-[6px] md:text-[7px]" />
@@ -387,7 +387,7 @@ const MovieCard = ({
                       <motion.button
                         whileHover={{ scale: 1.05, borderColor: "#fff" }}
                         whileTap={{ scale: 0.95 }}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 rounded-sm text-white hover:border-white transition-all"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all"
                       >
                         <FaInfoCircle className="text-[6px] md:text-[7px]" />
                         <span className="text-[7px] md:text-[8px] font-medium whitespace-nowrap">
