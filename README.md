@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="client/public/logo-con-chim.png" alt="Netflix Logo" width="120" />
+  <img src="netflix/public/favicon.png" alt="Netflix Logo" width="120" />
   
-  # 🎬 Netflix Clone 2025
+  # Netflix Clone 
   
   <p>Full-stack Netflix Clone với giao diện hiện đại nhất, sử dụng React + Vite + TailwindCSS + Framer Motion + Firebase</p>
 </div>
