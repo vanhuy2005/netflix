@@ -136,10 +136,4 @@ Mong nhận PR hợp lệ:
 
 ---
 
-> Nếu bạn muốn, mình có thể:
->
-> - Viết README song ngữ (VI + EN),
-> - Thêm hướng dẫn chi tiết để deploy (Netlify / Vercel),
-> - Viết checklist setup Firebase từng bước.
-
 Made with ❤️ by the Netflix clone project
