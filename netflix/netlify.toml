@@ -1,0 +1,14 @@
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Ensure devDependencies (tsc, vite) are installed during build on Netlify
+  NPM_CONFIG_PRODUCTION = "false"
+
+# Redirect all routes to index.html for SPA routing (BrowserRouter)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
