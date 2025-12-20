@@ -8,23 +8,28 @@
 
 ---
 
-## 🚀 Tổng quan
+## TỔNG QUAN
 
 **Netflix Clone** là một bản sao giao diện và trải nghiệm xem phim (front-end focused) được xây dựng để minh họa các kỹ thuật UI/UX hiện đại: cinematic transition, profile management, danh sách "My List", trình phát trailer (YouTube), và tích hợp với The Movie Database (TMDB) + Firebase (Auth & Firestore). Mục tiêu: học tập, demo kỹ thuật và làm cơ sở cho các dự án media.
 
-## ✨ Tính năng chính
+## TÍNH NĂNG CHÍNH
 
-- 🔐 Firebase Authentication (Email/Password) với xử lý lỗi thân thiện
-- 👤 Hệ thống Profiles (nhiều hồ sơ trong 1 tài khoản)
-- 💾 Lưu phim theo từng profile (Firestore), real-time updates
-- 🎬 Cinematic Splash (intro video) với cơ chế fallback/timeout và test suite
-- ▶️ Trailer playback qua YouTube (react-youtube)
-- 🔍 Tìm kiếm, Browse, Billboard, Movie Rows, và Movie Detail/Player
-- 🎨 Responsive UI, TailwindCSS theme (Netflix-like colors)
-- ✨ Chuyển động mượt với Framer Motion
-- 🧪 Manual tests & utilities (ví dụ: `src/utils/testCinematicTransition.js`)
+- Firebase Authentication (Email/Password) với xử lý lỗi thân thiện
+- Hệ thống Profiles (nhiều hồ sơ trong 1 tài khoản)
+- Lưu phim theo từng profile (Firestore), real-time updates
+- Cinematic Splash (intro video) với cơ chế fallback/timeout và test suite
+- Trailer playback qua YouTube (react-youtube)
+- Tìm kiếm, Browse, Billboard, Movie Rows, và Movie Detail/Player
+- Responsive UI, TailwindCSS theme (Netflix-like colors)
+- Chuyển động mượt với Framer Motion
+- Manual tests & utilities (ví dụ: `src/utils/testCinematicTransition.js`)
+  
+## CÁCH SỬ DỤNG
 
-## 🧰 Stack công nghệ
+- Tạo tài khoản, bắt buộc xài gmail thật vì dùng firebase để authentication
+- Và bạn đã có thể trải nghiệm toàn bộ tính năng của hệ thống
+
+## TECH-STACK
 
 - Frontend: React 19, TypeScript (một số file .jsx vẫn còn), Vite
 - UI: TailwindCSS, Framer Motion
@@ -33,7 +38,7 @@
 - Auth & DB: Firebase (Auth + Firestore)
 - Misc: react-toastify, react-icons, react-youtube
 
-## 📦 Yêu cầu & cài đặt môi trường
+## ENVIRONMENT SET UP
 
 ### Yêu cầu tối thiểu
 
@@ -80,7 +85,7 @@ npm run dev
 
 ---
 
-## 🔧 Cấu hình Firebase & Firestore (gợi ý)
+## CẤU HÌNH FIREBASE & FIRESTORE GỢI Ý
 
 - Bật Authentication → Email/Password (important)
 - Tạo Firestore database (in native mode)
@@ -93,12 +98,12 @@ Một số điểm lưu ý (xem `src/config/firebase.js`):
 - Có helper: `signup`, `login`, `logout`, `saveShow`, `removeShow`, `subscribeToSavedShows`, `updateProfile`, `deleteProfile`
 - Nếu gặp lỗi `auth/configuration-not-found`, hãy kiểm tra trong Firebase Console rằng Email/Password đã được bật.
 
-## 🧪 Tests & Manual QA
+## TEST & MANUAL QA
 
 - Cinematic transition có bộ test hướng dẫn thủ công trong `src/utils/testCinematicTransition.js` (Slow 3G, autoplay block, rapid clicks, cleanup, v.v.)
 - Có helper `src/config/firebaseTest.js` để kiểm tra kết nối Firebase
 
-## 📜 Scripts hữu ích
+## MỘT SỐ LỆNH HỮU ÍCH
 
 - `npm run dev` — chạy dev server (Vite)
 - `npm run build` — build (TypeScript + vite build)
@@ -106,14 +111,14 @@ Một số điểm lưu ý (xem `src/config/firebase.js`):
 - `npm run lint` — chạy eslint
 - `npm run tl-init` — khởi tạo Tailwind (nếu cần)
 
-## ✅ Các vấn đề thường gặp & gỡ rối
+## CÁC VẤN ĐỀ THƯỜNG GẶP
 
 - "Firebase API Key missing" → kiểm tra `.env` và biến `VITE_FIREBASE_API_KEY`
 - "Autoplay blocked" trên iOS → cinematic splash có fallback: video sẽ bị bỏ qua và app vẫn điều hướng
 - Trailer không tìm thấy → kiểm tra `VITE_TMDB_API_KEY` và hạn chế API của TMDB
 - Lỗi khi lưu phim → kiểm tra security rules của Firestore và đường dẫn `users/{uid}/profiles/...`
 
-## 🧭 Kiến trúc & cấu trúc thư mục (tóm tắt)
+## KIẾN TRÚC VÀ CẤU TRÚC THƯ MỤC
 
 - `src/` — mã nguồn chính
   - `components/` — các UI component (Navbar, MovieRow, Billboard, Player,...)
@@ -122,7 +127,7 @@ Một số điểm lưu ý (xem `src/config/firebase.js`):
   - `utils/` — helper & test utilities (ví dụ cinematic transition test)
   - `assets/` — static assets
 
-## 🤝 Đóng góp
+## ĐÓNG GÓP
 
 Mong nhận PR hợp lệ:
 
@@ -130,10 +135,10 @@ Mong nhận PR hợp lệ:
 - Viết test nếu có thể và đảm bảo lint pass
 - Mô tả rõ thay đổi trong PR
 
-## 📄 License
+## LICENSE
 
 - Mã nguồn này được cung cấp cho mục đích học tập/demo. (Bạn có thể thêm license như MIT nếu muốn)
 
 ---
 
-Made with ❤️ by the Netflix clone project
+Made with ❤️ by vanhuy2005
