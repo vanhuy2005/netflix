@@ -3,34 +3,31 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import Navbar from "../../components/Navbar/Navbar";
-import MovieCard from "../../components/Browse/MovieCard";
+import MovieCard from "../../components/Browse/MovieCard"; // Đảm bảo MovieCard đã có prop 'fluid' như bước trước
 import requests from "../../api/requests";
 import { IoInformationCircleOutline } from "react-icons/io5";
 
-// Custom Hook: useDebounce
+// Custom Hook: useDebounce (Giữ nguyên)
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
-
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-
     return () => {
       clearTimeout(handler);
     };
   }, [value, delay]);
-
   return debouncedValue;
 };
 
-// Skeleton Loading Component
+// Skeleton Loading Component (Cập nhật Grid cho khớp với giao diện chính)
 const SearchSkeleton = () => (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
       <div
         key={i}
-        className="aspect-video bg-netflix-darkGray rounded-md animate-pulse"
+        className="aspect-video bg-[#333] rounded-md animate-pulse"
       />
     ))}
   </div>
@@ -47,56 +44,32 @@ const Search = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch data based on query
+  // Fetch data based on query (Giữ nguyên logic)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        // Check if query exists and is not empty
         if (debouncedQuery && debouncedQuery.trim() !== "") {
-          // Case A: Search with keyword
-          console.log("Searching for:", debouncedQuery);
-          
-          // Clear previous results
           setTopSearches([]);
-          
           const searchUrl = requests.search(debouncedQuery);
-          console.log("API URL:", searchUrl);
-          
           const response = await axios.get(searchUrl);
-          console.log("Search results:", response.data.results.length);
-
-          // Filter out items without images
           const filteredResults = response.data.results.filter(
             (item) => item.backdrop_path || item.poster_path
           );
-
           setResults(filteredResults);
         } else {
-          // Case B: No keyword - Show Top Searches (Trending)
-          console.log("Loading trending content...");
-          
-          // Clear previous search results
           setResults([]);
-          
           const trendingUrl = requests.fetchTrending;
-          console.log("📡 API URL:", trendingUrl);
-          
           const response = await axios.get(trendingUrl);
-          console.log("Trending results:", response.data.results.length);
-
-          // Filter out items without images
           const filteredResults = response.data.results.filter(
             (item) => item.backdrop_path || item.poster_path
           );
-
           setTopSearches(filteredResults);
         }
       } catch (err) {
         console.error("Fetch error:", err);
-        console.error("Error details:", err.response?.data || err.message);
         setError("Không thể tải kết quả. Vui lòng thử lại.");
       } finally {
         setLoading(false);
@@ -106,7 +79,7 @@ const Search = () => {
     fetchData();
   }, [debouncedQuery]);
 
-  // Empty State Component
+  // Empty State Component (Giữ nguyên)
   const EmptyState = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -126,10 +99,7 @@ const Search = () => {
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>
-              Thử tìm kiếm bằng tên phim, chương trình truyền hình hoặc tên diễn
-              viên
-            </span>
+            <span>Thử tìm kiếm bằng tên phim, TV Show hoặc tên diễn viên</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
@@ -153,8 +123,9 @@ const Search = () => {
       <Navbar />
 
       {/* Main Content */}
-      <div className="pt-24 px-[4%] md:px-[60px] pb-20">
-        {/* Filter Bar - Only show when there's a query */}
+      <div className="pt-24 px-4 md:px-8 lg:px-12 pb-20">
+        
+        {/* Filter Bar */}
         {query.trim() && !loading && results.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -191,30 +162,28 @@ const Search = () => {
           </div>
         )}
 
-        {/* Results Grid - With Search Query */}
+        {/* --- GRID HIỂN THỊ KẾT QUẢ (FIXED LAYOUT) --- */}
         {!loading && query.trim() && (
           <>
             {results.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              // Cập nhật Grid Classes: Nhiều cột hơn, khoảng cách dọc lớn hơn
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-4 gap-y-10">
                 <AnimatePresence mode="popLayout">
                   {results.map((item) => (
                     <motion.div
                       key={item.id}
                       layout
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.5,
-                        transition: { duration: 0.2 },
-                      }}
-                      transition={{
-                        layout: { type: "spring", stiffness: 300, damping: 30 },
-                        opacity: { duration: 0.3 },
-                        scale: { duration: 0.3 },
-                      }}
+                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                      // Thêm hover:z-50 để card đang hover luôn nổi lên trên các card khác
+                      className="relative z-0 hover:z-50 transition-all duration-300"
                     >
-                      <MovieCard movie={item} isLarge={false} />
+                      <MovieCard 
+                        movie={item} 
+                        isLarge={false} 
+                        fluid={true} // QUAN TRỌNG: Kích hoạt chế độ co giãn
+                      />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -225,23 +194,23 @@ const Search = () => {
           </>
         )}
 
-        {/* Top Searches Grid - No Query */}
+        {/* --- GRID HIỂN THỊ TOP SEARCHES (FIXED LAYOUT) --- */}
         {!loading && !query.trim() && topSearches.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-x-4 gap-y-10">
             <AnimatePresence mode="popLayout">
               {topSearches.map((item) => (
                 <motion.div
                   key={item.id}
                   layout
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{
-                    layout: { type: "spring", stiffness: 300, damping: 30 },
-                    opacity: { duration: 0.3 },
-                    scale: { duration: 0.3 },
-                  }}
+                  className="relative z-0 hover:z-50 transition-all duration-300"
                 >
-                  <MovieCard movie={item} isLarge={false} />
+                  <MovieCard 
+                    movie={item} 
+                    isLarge={false} 
+                    fluid={true} // QUAN TRỌNG: Kích hoạt chế độ co giãn
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>
