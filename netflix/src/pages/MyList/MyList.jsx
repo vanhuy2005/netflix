@@ -1,15 +1,36 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { auth, subscribeToSavedShows } from "../../config/firebase";
 import Navbar from "../../components/Navbar/Navbar";
 import MovieCard from "../../components/Browse/MovieCard";
 
-// Skeleton Loading Component
+// --- 1. Animation Variants (Hiệu ứng thác đổ) ---
+// Định nghĩa bên ngoài component để tối ưu hiệu năng
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05, // Thời gian trễ giữa các card (càng nhỏ càng nhanh)
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 }, // Bắt đầu: Mờ và nằm thấp hơn 20px
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { duration: 0.4, ease: "easeOut" }, // Kết thúc: Hiện rõ và trồi lên
+  },
+};
+
+// --- 2. Skeleton Loading (Khớp với Grid mới) ---
 const ListSkeleton = () => (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
+    {[...Array(12)].map((_, i) => (
       <div
         key={i}
         className="aspect-video bg-netflix-darkGray rounded-md animate-pulse"
@@ -40,12 +61,9 @@ const MyList = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Check if profile exists before subscribing
     const currentProfile = localStorage.getItem("current_profile");
     if (!currentProfile) {
-      console.log(
-        "No profile selected, skipping savedShows subscription in MyList"
-      );
+      console.log("No profile selected, skipping subscription");
       setSavedShows([]);
       setLoading(false);
       return;
@@ -65,12 +83,10 @@ const MyList = () => {
       );
 
       return () => {
-        if (unsubscribeSavedShows) {
-          unsubscribeSavedShows();
-        }
+        if (unsubscribeSavedShows) unsubscribeSavedShows();
       };
     } catch (error) {
-      console.error("Error subscribing to saved shows in MyList:", error);
+      console.error("Error subscribing to saved shows:", error);
       setSavedShows([]);
       setLoading(false);
     }
@@ -104,8 +120,12 @@ const MyList = () => {
 
         {/* Empty State */}
         {savedShows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <div className="text-6xl mb-6 opacity-20">📺</div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center min-h-[50vh] text-center"
+          >
+            <div className="text-6xl mb-6 opacity-20 grayscale">📺</div>
             <h2 className="text-xl md:text-2xl text-gray-400 mb-3">
               Bạn chưa chọn nội dung nào
             </h2>
@@ -114,42 +134,40 @@ const MyList = () => {
             </p>
             <button
               onClick={() => navigate("/browse")}
-              className="px-8 py-3 bg-white text-black font-semibold rounded hover:bg-gray-200 transition-colors"
+              className="px-8 py-3 bg-white text-black font-bold rounded hover:bg-gray-200 transition-transform hover:scale-105"
             >
               Khám phá ngay
             </button>
-          </div>
+          </motion.div>
         ) : (
-          /* Grid Layout using MovieCard component with smooth animations */
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <AnimatePresence mode="popLayout">
-              {savedShows.map((movie) => (
-                <motion.div
-                  key={movie.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0.5,
-                    transition: { duration: 0.2 },
-                  }}
-                  transition={{
-                    layout: { type: "spring", stiffness: 300, damping: 30 },
-                    opacity: { duration: 0.3 },
-                    scale: { duration: 0.3 },
-                  }}
-                >
-                  <MovieCard movie={movie} isLarge={false} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+          /* --- GRID LAYOUT MỚI & TỐI ƯU --- */
+          /* 1. Grid chia cột chi tiết (lên tới 6 cột) để card nhỏ gọn, tinh tế */
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {savedShows.map((movie) => (
+              <motion.div
+                key={movie.id}
+                variants={itemVariants} // Áp dụng hiệu ứng từng item
+                className="w-full relative z-0 hover:z-50" // Z-index để khi hover không bị che
+              >
+                {/* 2. Truyền fillWidth để MovieCard tự co giãn theo Grid */}
+                <MovieCard 
+                  movie={movie} 
+                  isLarge={false} 
+                  fillWidth={true} 
+                />
+              </motion.div>
+            ))}
+          </motion.div>
         )}
 
         {/* Saved Count */}
         {savedShows.length > 0 && (
-          <div className="mt-8 text-center text-gray-500 text-sm">
+          <div className="mt-12 border-t border-gray-800 pt-8 text-center text-gray-500 text-sm">
             {savedShows.length} phim đã lưu
           </div>
         )}

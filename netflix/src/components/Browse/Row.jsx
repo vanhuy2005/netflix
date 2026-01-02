@@ -16,10 +16,9 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
       try {
         setLoading(true);
         const response = await axios.get(fetchUrl, {
-          timeout: 8000, // 8 second timeout
+          timeout: 8000,
         });
 
-        // FAIL-SAFE: Filter valid movies only
         const validMovies = (response.data.results || []).filter(
           (movie) =>
             movie.id &&
@@ -28,13 +27,8 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
         );
 
         setMovies(validMovies);
-
-        if (validMovies.length === 0) {
-          console.log(`No valid movies in ${title}`);
-        }
       } catch (error) {
         console.error(`Error fetching ${title}:`, error.message);
-        // FAIL-SAFE: Set empty array on error (no crash, just empty row)
         setMovies([]);
       } finally {
         setLoading(false);
@@ -71,9 +65,8 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
     const currentRow = rowRef.current;
     if (currentRow) {
       currentRow.addEventListener("scroll", checkArrows);
-      checkArrows(); // Initial check
+      checkArrows();
     }
-
     return () => {
       if (currentRow) {
         currentRow.removeEventListener("scroll", checkArrows);
@@ -84,18 +77,18 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
   if (loading) {
     return (
       <div className="w-full mb-4 md:mb-8">
-        <h2 className="text-sm md:text-lg lg:text-xl font-semibold mb-2 pl-[4%] md:pl-[60px]">
+        <h2 className="text-sm md:text-lg lg:text-xl font-semibold mb-2 pl-[4%] md:pl-[60px] text-white">
           {title}
         </h2>
         <div className="flex gap-2 overflow-hidden pl-[4%] md:pl-[60px]">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className={`${
+              className={`flex-shrink-0 bg-gray-800 ${
                 isLarge
-                  ? "min-w-[120px] md:min-w-[150px] aspect-[2/3]"
-                  : "min-w-[180px] md:min-w-[220px] aspect-video"
-              } animate-shimmer rounded-md`}
+                  ? "w-[110px] md:w-[150px] aspect-[2/3]"
+                  : "w-[160px] md:w-[220px] aspect-video"
+              } animate-pulse rounded-md`}
             />
           ))}
         </div>
@@ -103,59 +96,41 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
     );
   }
 
+  if (movies.length === 0) return null;
+
   return (
-    <div className="w-full relative z-10 group/row hover:z-50 mb-2 md:mb-4">
-      {/* Row Title - Netflix style */}
-      <h2 className="text-sm md:text-base lg:text-lg font-bold mb-1 md:mb-2 text-white pl-[4%] md:pl-[60px] hover:text-gray-300 transition-colors cursor-pointer">
+    // [FIX 1] hover:z-50: Đảm bảo hàng đang hover đè lên hàng bên dưới/trên
+    <div className="w-full relative z-10 group/row hover:z-50 mb-4 md:mb-8">
+      {/* Row Title */}
+      <h2 className="text-sm md:text-xl lg:text-2xl font-bold mb-2 md:mb-3 text-[#e5e5e5] pl-[4%] md:pl-[60px] hover:text-white transition-colors cursor-pointer flex items-center gap-2">
         {title}
         <motion.span
           initial={{ opacity: 0, x: -10 }}
           whileHover={{ opacity: 1, x: 0 }}
-          className="hidden group-hover/row:inline-flex items-center gap-1 text-[#ffffff] text-xs ml-2"
+          className="hidden md:group-hover/row:inline-flex items-center text-xs md:text-sm font-normal text-[#54b9c5]"
         >
-          <motion.span
-            initial={{ x: -5 }}
-            animate={{ x: 0 }}
-            transition={{
-              repeat: Infinity,
-              duration: 1.5,
-              ease: "easeInOut",
-              repeatType: "reverse",
-            }}
-          >
-            →
-          </motion.span>
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-          >
-            Xem tất cả
-          </motion.span>
+          Xem tất cả <span className="ml-1">›</span>
         </motion.span>
       </h2>
 
-      {/* Movies Container with Navigation */}
-      <div className="relative">
+      {/* Movies Container */}
+      <div className="relative group">
         {/* Left Arrow */}
         {showLeftArrow && (
           <button
             onClick={() => handleScroll("left")}
-            className="absolute left-0 top-0 h-full z-40 w-10 md:w-14 bg-gradient-to-r from-black/80 to-transparent flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-all duration-300"
+            className="absolute left-0 top-0 bottom-0 z-40 w-12 bg-black/50 hover:bg-black/70 hidden md:flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 rounded-r-md"
           >
-            <motion.div
-              whileHover={{ scale: 1.2 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <FaChevronLeft className="text-xl md:text-2xl text-white drop-shadow-lg" />
-            </motion.div>
+            <FaChevronLeft className="text-2xl text-white" />
           </button>
         )}
 
-        {/* Movies Scroll Container with expanded safe zone */}
+        {/* Scrollable Area */}
         <div
           ref={rowRef}
-          className="flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide scroll-smooth w-full pl-[4%] md:pl-[60px] pr-[4%] md:pr-[60px] py-16 -my-16"
+          // [FIX 2] Tăng padding dọc lên py-24 (96px) để đủ chỗ cho thẻ phóng to 1.8 lần
+          // Sử dụng negative margin -my-24 để không làm vỡ layout chung của trang
+          className="flex flex-nowrap items-center gap-2 md:gap-3 overflow-x-scroll scrollbar-hide scroll-smooth w-full px-[4%] md:px-[60px] py-24 -my-24"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -168,6 +143,7 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
               isLarge={isLarge}
               isFirst={index === 0}
               isLast={index === movies.length - 1}
+              fluid={false} 
             />
           ))}
         </div>
@@ -176,14 +152,9 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
         {showRightArrow && (
           <button
             onClick={() => handleScroll("right")}
-            className="absolute right-0 top-0 h-full z-40 w-10 md:w-14 bg-gradient-to-l from-black/80 to-transparent flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-all duration-300"
+            className="absolute right-0 top-0 bottom-0 z-40 w-12 bg-black/50 hover:bg-black/70 hidden md:flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 rounded-l-md"
           >
-            <motion.div
-              whileHover={{ scale: 1.2 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <FaChevronRight className="text-xl md:text-2xl text-white drop-shadow-lg" />
-            </motion.div>
+            <FaChevronRight className="text-2xl text-white" />
           </button>
         )}
       </div>
