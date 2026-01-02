@@ -221,7 +221,31 @@ const Billboard = () => {
       disablekb: 1,
       fs: 0,
       playsinline: 1,
+      // Fix: Set proper origin for localhost
+      origin: window.location.origin,
+      enablejsapi: 1,
     },
+  };
+
+  // YouTube Player Event Handlers (Fix: "not attached to DOM" warning)
+  const onPlayerReady = (event) => {
+    // Wait for DOM to be fully ready before API calls
+    if (event.target && typeof event.target.playVideo === "function") {
+      try {
+        if (isMuted) {
+          event.target.mute();
+        }
+        event.target.playVideo();
+      } catch (err) {
+        console.warn("YouTube player not ready:", err.message);
+      }
+    }
+  };
+
+  const onPlayerError = (event) => {
+    console.warn("YouTube player error:", event.data);
+    // Fallback to poster image on error
+    setShowVideo(false);
   };
 
   if (loading || !movie) {
@@ -256,6 +280,8 @@ const Billboard = () => {
                     className="absolute inset-0 w-full h-full scale-150"
                     iframeClassName="w-full h-full"
                     opts={opts}
+                    onReady={onPlayerReady}
+                    onError={onPlayerError}
                   />
                 </div>
               </div>
@@ -276,12 +302,12 @@ const Billboard = () => {
           <div className="absolute bottom-0 w-full h-[25%] bg-gradient-to-t from-[#141414] via-[#141414]/80 to-transparent z-10" />
 
           {/* 3. CONTENT - Nội dung nằm ở góc trái dưới, compact hơn */}
-          <div className="absolute inset-0 z-20 flex flex-col justify-end pb-[15%] md:pb-[12%] lg:pb-[10%] px-[4%] md:px-[60px]">
+          <div className="absolute inset-0 z-20 flex flex-col justify-end pb-[15%] md:pb-[12%] lg:pb-[10%] px-[4%] md:px-[60px] pointer-events-none">
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.6 }}
-              className="max-w-md md:max-w-lg lg:max-w-xl w-full"
+              className="max-w-md md:max-w-lg lg:max-w-xl w-full pointer-events-auto"
             >
               {/* TITLE: Compact hơn, chuyên nghiệp */}
               <h1 className="text-2xl md:text-4xl lg:text-5xl font-black mb-2 md:mb-4 drop-shadow-2xl leading-tight text-white">
@@ -336,7 +362,7 @@ const Billboard = () => {
       </AnimatePresence>
 
       {/* 4. VOLUME CONTROL & AGE RATING */}
-      <div className="absolute right-[4%] md:right-[60px] bottom-[20%] md:bottom-[18%] z-30 flex items-center gap-2">
+      <div className="absolute right-[4%] md:right-[60px] bottom-[20%] md:bottom-[18%] z-50 flex items-center gap-2">
         {showVideo && trailerKey && (
           <button
             onClick={() => setIsMuted(!isMuted)}
@@ -357,7 +383,7 @@ const Billboard = () => {
 
       {/* 5. CAROUSEL INDICATORS */}
       {movies.length > 1 && (
-        <div className="absolute bottom-[12%] md:bottom-[10%] right-[4%] md:right-[60px] z-30 flex items-center gap-2">
+        <div className="absolute bottom-[12%] md:bottom-[10%] right-[4%] md:right-[60px] z-50 flex items-center gap-2 pointer-events-auto">
           <button
             onClick={handlePrev}
             disabled={isTransitioning}

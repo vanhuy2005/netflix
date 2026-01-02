@@ -20,7 +20,8 @@ const MovieCard = ({
   isLarge = false,
   isFirst = false,
   isLast = false,
-  fluid = false, // [UPDATE] Thêm prop này để hỗ trợ Grid Layout (Tìm kiếm)
+  fluid = false, // Hỗ trợ Grid Layout (Tìm kiếm)
+  hideExpandedFooter = false, // When true, hide the expanded resume/footer (used by Continue Watching row)
 }) => {
   const navigate = useNavigate();
   const { openModal } = useModal();
@@ -34,9 +35,28 @@ const MovieCard = ({
   const [trailerKey, setTrailerKey] = useState(null);
   const [isLoadingTrailer, setIsLoadingTrailer] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  // [UX IMPROVEMENT] Refs cho debounce timer
   const hoverTimerRef = useRef(null);
+  const leaveTimerRef = useRef(null); // Timer để trì hoãn việc đóng thẻ
 
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
+  // [PHASE 2] Lấy phần trăm đã xem từ dữ liệu Firestore (nếu có)
+  const progressPercentage = movie.percentage || 0;
+  const currentProgress = movie.progress || 0; // seconds watched
+  const totalDuration = movie.duration || 0; // total seconds
+
+  // Helper: Format seconds to MM:SS
+  const formatTime = (seconds) => {
+    if (!seconds || seconds === 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Helper: Calculate time remaining
+  const timeRemaining = totalDuration > 0 ? totalDuration - currentProgress : 0;
 
   // Listen to auth state
   useEffect(() => {
@@ -125,37 +145,56 @@ const MovieCard = ({
     }
   };
 
-  // PRODUCTION: 800ms Debounce
+  // [UX IMPROVEMENT] Logic Hover thông minh (Debounce)
   const handleMouseEnter = () => {
+    // 1. Hủy ngay lệnh đóng (nếu có) để giữ thẻ mở
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+
     setIsHovered(true);
-    hoverTimerRef.current = setTimeout(() => {
-      setShowExpandedCard(true);
-      fetchTrailer();
-    }, 800);
+
+    // 2. Nếu thẻ chưa mở, bắt đầu đếm ngược để mở (Debounce mở)
+    if (!showExpandedCard) {
+      hoverTimerRef.current = setTimeout(() => {
+        setShowExpandedCard(true);
+        fetchTrailer();
+      }, 500); // 500ms delay trước khi mở
+    }
   };
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
-    setShowExpandedCard(false);
-    setTrailerKey(null);
+    // 1. Hủy lệnh mở nếu chưa kịp mở
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
+
+    // 2. [QUAN TRỌNG] Set timer trễ 400ms để đóng
+    leaveTimerRef.current = setTimeout(() => {
+      setIsHovered(false);
+      setShowExpandedCard(false);
+      setTrailerKey(null);
+    }, 400);
   };
 
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-      }
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     };
   }, []);
 
   const handlePlayClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
+
+    // [SIMPLIFIED] Player will fetch resume data itself from Firebase
+    // No need to pass state - cleaner and works even on refresh
     navigate(`/player/${movie.id}`);
+    console.log(`▶️ [MovieCard] Navigating to player for movie ${movie.id}`);
   };
 
   const handleDetailsClick = (e) => {
@@ -205,9 +244,6 @@ const MovieCard = ({
     },
   };
 
-  // [UPDATE] Logic xử lý chiều rộng:
-  // Nếu fluid=true (trang tìm kiếm) -> w-full (ăn theo Grid)
-  // Nếu fluid=false (trang chủ slide) -> Giữ nguyên kích thước cố định
   const widthClass = fluid
     ? "w-full"
     : isLarge
@@ -216,15 +252,17 @@ const MovieCard = ({
 
   return (
     <div
-      className={`relative cursor-pointer flex-shrink-0 ${widthClass}`}
+      className={`relative cursor-pointer flex-shrink-0 ${widthClass} pointer-events-auto hover:z-[100]`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{
-        zIndex: showExpandedCard ? 50 : 1,
+        zIndex: showExpandedCard ? 50 : 1, // [FIX Z-INDEX] Khi mở thì z-index cao
         isolation: "isolate",
       }}
     >
-      {/* --- TRẠNG THÁI TĨNH --- */}
+      {/* =================================================================================
+            TRẠNG THÁI TĨNH (STATIC CARD)
+        ================================================================================= */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
@@ -256,17 +294,40 @@ const MovieCard = ({
             setImageLoaded(true);
           }}
         />
+
+        {/* [PHASE 2] PROGRESS BAR (STATIC) - Enhanced with time info */}
+        {progressPercentage > 0 && !isHovered && !isLarge && (
+          <div className="absolute bottom-0 left-0 right-0 z-10">
+            {/* Progress bar with glow effect */}
+            <div className="relative h-1.5 bg-gray-800/90 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-netflix-red via-netflix-redHover to-netflix-red shadow-[0_0_8px_rgba(229,9,20,0.6)] transition-all duration-300"
+                style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+              />
+            </div>
+
+            {/* Time remaining label (bottom-left corner) */}
+            <div className="absolute -top-6 left-2 text-[10px] font-bold text-white bg-black/80 px-2 py-0.5 rounded backdrop-blur-sm border border-white/10">
+              {timeRemaining > 0
+                ? `${formatTime(timeRemaining)} left`
+                : "Watched"}
+            </div>
+          </div>
+        )}
       </motion.div>
 
-      {/* --- EXPANDED STATE --- */}
+      {/* =================================================================================
+            TRẠNG THÁI MỞ RỘNG (EXPANDED CARD)
+        ================================================================================= */}
       <AnimatePresence>
         {showExpandedCard && (
           <motion.div
+            // [FIX UX HOVER] Thêm onMouseEnter vào đây để đảm bảo khi chuột ở trên thẻ expanded, nó không bị đóng
+            onMouseEnter={handleMouseEnter}
             initial={{ opacity: 0, scale: 1 }}
             animate={{
               opacity: 1,
-              // [UPDATE] Điều chỉnh tỷ lệ scale một chút nếu ở chế độ fluid để tránh bị quá to
-              scale: fluid ? 1.4 : (isLarge ? 1.4 : 1.6),
+              scale: fluid ? 1.4 : isLarge ? 1.4 : 1.6,
               y: -20,
               x: isLast ? (isLarge ? -20 : -40) : 0,
             }}
@@ -281,11 +342,10 @@ const MovieCard = ({
                 : isLast
                 ? "right top"
                 : "center top",
+              willChange: "transform, opacity",
             }}
           >
             <div
-              // FIX MẠNH TAY 1: Đổi bg-[#141414] thành bg-black để tiệp màu hoàn toàn
-              // FIX MẠNH TAY 2: Xóa luôn shadow (shadow-none) để không còn vệt đen mờ nào xung quanh
               className={`relative w-full overflow-hidden rounded-sm bg-black shadow-none ${
                 isLarge ? "aspect-[2/3]" : "aspect-video"
               }`}
@@ -299,7 +359,6 @@ const MovieCard = ({
                 />
               ) : trailerKey && !isLoadingTrailer ? (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden bg-black">
-                  {/* FIX MẠNH TAY 3: Tăng scale từ 1.65 lên 1.8 để cắt sâu hơn nữa */}
                   <div className="w-[150%] h-[150%] flex items-center justify-center">
                     <YouTube
                       videoId={trailerKey}
@@ -322,11 +381,11 @@ const MovieCard = ({
               )}
 
               {/* Content Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-1.5 md:p-2">
+              <div className="absolute bottom-0 left-0 right-0 p-1.5 md:p-2 bg-gradient-to-t from-black via-black/60 to-transparent">
                 {/* Action Buttons Row */}
                 <div className="flex items-center justify-center gap-1 mb-1">
                   {isLarge ? (
-                    // NETFLIX ORIGINALS
+                    // NETFLIX ORIGINALS BUTTONS
                     <>
                       <motion.button
                         whileHover={{ scale: 1.1 }}
@@ -360,7 +419,7 @@ const MovieCard = ({
                       </motion.button>
                     </>
                   ) : (
-                    // REGULAR CARDS
+                    // REGULAR CARDS BUTTONS
                     <>
                       <motion.button
                         whileHover={{
@@ -369,10 +428,10 @@ const MovieCard = ({
                         }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handlePlayClick}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-white text-black hover:bg-white/90 transition-all shadow-md"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-white text-black hover:bg-white/90 transition-all shadow-md rounded-[2px]"
                       >
                         <FaPlay className="text-[5px] md:text-[6px]" />
-                        <span className="text-[7px] md:text-[8px] font-semibold whitespace-nowrap">
+                        <span className="text-[7px] md:text-[8px] font-bold whitespace-nowrap">
                           Xem ngay
                         </span>
                       </motion.button>
@@ -381,7 +440,7 @@ const MovieCard = ({
                         whileHover={{ scale: 1.05, borderColor: "#fff" }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleToggleList}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all rounded-[2px]"
                       >
                         {isSaved ? (
                           <IoCheckmark className="text-[6px] md:text-[7px]" />
@@ -397,7 +456,7 @@ const MovieCard = ({
                         whileHover={{ scale: 1.05, borderColor: "#fff" }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleDetailsClick}
-                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all"
+                        className="flex items-center gap-0.5 px-1.5 md:px-2 py-0.5 md:py-0.5 bg-transparent border border-gray-400 text-white hover:border-white transition-all rounded-[2px]"
                       >
                         <FaInfoCircle className="text-[6px] md:text-[7px]" />
                         <span className="text-[7px] md:text-[8px] font-medium whitespace-nowrap">
@@ -410,30 +469,59 @@ const MovieCard = ({
 
                 {/* Movie Metadata Row */}
                 <div className="flex items-center justify-center flex-wrap gap-x-1 text-[5px] md:text-[7px] text-gray-300 drop-shadow-md">
-                  <span className="text-white/90">
+                  <span className="text-white/90 font-semibold">
                     {new Date(
                       movie.release_date || movie.first_air_date
                     ).getFullYear()}
                   </span>
                   <span className="text-gray-500">|</span>
-                  <span>{movie.adult ? "18+" : "T13"}</span>
+                  <span className="border border-gray-500 px-0.5 rounded-[1px]">
+                    {movie.adult ? "18+" : "13+"}
+                  </span>
                   <span className="text-gray-500">|</span>
-                  <span>
+                  <span className="text-white font-medium">
                     {movie.original_language?.toUpperCase() === "VI"
                       ? "Việt Nam"
                       : movie.original_language?.toUpperCase() || "EN"}
                   </span>
                   <span className="text-gray-500">|</span>
-                  <span>HD</span>
-                  {movie.vote_average > 0 && (
-                    <>
-                      <span className="text-gray-500">|</span>
-                      <span className="text-[#46d369]">
-                        {movie.vote_average.toFixed(1)}★
-                      </span>
-                    </>
-                  )}
+                  <span className="text-[#46d369] font-bold">
+                    {Math.round(movie.vote_average * 10)}% Match
+                  </span>
                 </div>
+
+                {/* [PHASE 2] PROGRESS BAR (EXPANDED) - Enhanced with resume info */}
+                {progressPercentage > 0 && !hideExpandedFooter && (
+                  <div className="mt-3 border-t border-gray-700/50 pt-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-netflix-red">
+                          \u25b6 Resume
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {formatTime(currentProgress)} /{" "}
+                          {formatTime(totalDuration)}
+                        </span>
+                      </div>
+                      <span className="text-xs font-medium text-white bg-netflix-red/20 px-2 py-0.5 rounded">
+                        {Math.round(progressPercentage)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-netflix-red via-netflix-redHover to-netflix-red shadow-[0_0_8px_rgba(229,9,20,0.4)] transition-all duration-300"
+                        style={{
+                          width: `${Math.min(progressPercentage, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-1 text-[10px] text-gray-500 text-right">
+                      {timeRemaining > 0
+                        ? `${formatTime(timeRemaining)} remaining`
+                        : "Completed"}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

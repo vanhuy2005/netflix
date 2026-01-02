@@ -6,7 +6,8 @@
 /* --- 1. FONTS --- */
 @font-face {
   font-family: "Netflix Sans";
-  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Regular.woff2") format("woff2");
+  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Regular.woff2")
+    format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -14,7 +15,8 @@
 
 @font-face {
   font-family: "Netflix Sans";
-  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Medium.woff2") format("woff2");
+  src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Medium.woff2")
+    format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -39,11 +41,12 @@
 
   body {
     @apply bg-[#141414] text-white antialiased;
-    font-family: "Netflix Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Netflix Sans", "Inter", "Helvetica Neue", Helvetica, Arial,
+      sans-serif;
     margin: 0;
     padding: 0;
     overflow-x: hidden; /* Chỉ ẩn thanh cuộn ngang */
-    overflow-y: auto;   /* Cho phép cuộn dọc */
+    overflow-y: auto; /* Cho phép cuộn dọc */
   }
 
   /* Đảm bảo App luôn full chiều cao */
@@ -65,10 +68,10 @@
     height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: #141414; 
+    background: #141414;
   }
   ::-webkit-scrollbar-thumb {
-    background: #404040; 
+    background: #404040;
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -172,9 +175,16 @@
 
 /* Shake (Sai mật khẩu) */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-8px); }
-  75% { transform: translateX(8px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+  }
+  75% {
+    transform: translateX(8px);
+  }
 }
 .animate-shake {
   animation: shake 0.3s ease-in-out;
@@ -182,8 +192,15 @@
 
 /* Breathe (Avatar) */
 @keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.9; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
 }
 .animate-breathe {
   animation: breathe 3s ease-in-out infinite;
@@ -191,8 +208,14 @@
 
 /* Fade In Up (Modal xuất hiện) */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fadeInUp {
   animation: fadeInUp 0.5s ease-out forwards;
@@ -200,11 +223,48 @@
 
 /* Shimmer (Skeleton Loading) */
 @keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
 }
 .animate-shimmer {
-  background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 20%, #404040 40%, #2d2d2d 60%, #1a1a1a 100%);
+  background: linear-gradient(
+    90deg,
+    #1a1a1a 0%,
+    #2d2d2d 20%,
+    #404040 40%,
+    #2d2d2d 60%,
+    #1a1a1a 100%
+  );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
+}
+
+/* Fade In (Resume Indicator) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards, fadeOut 0.4s ease-in 2.6s forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }

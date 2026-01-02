@@ -15,6 +15,9 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
+  getDocs,
+  getDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -434,6 +437,335 @@ const updateProfile = async (user, profileId, updates) => {
   }
 };
 
+/**
+ * Add movie to watch history (debounced - call only when user plays/watches)
+ * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID
+ * @param {Object} movie - Movie data
+ */
+const addToWatchHistory = async (user, profileId, movie) => {
+  try {
+    if (!user || !user.uid) {
+      console.error("User not authenticated for watch history");
+      return;
+    }
+
+    if (!profileId) {
+      console.error("No profile ID for watch history");
+      return;
+    }
+
+    if (!movie || !movie.id) {
+      console.error("Invalid movie data for watch history");
+      return;
+    }
+
+    // Path: users/{uid}/profiles/{profileId}/watchHistory/{movieId}
+    const historyRef = doc(
+      db,
+      "users",
+      user.uid,
+      "profiles",
+      profileId,
+      "watchHistory",
+      String(movie.id)
+    );
+
+    const historyData = {
+      id: movie.id,
+      title: movie.title || movie.name || "Untitled",
+      poster_path: movie.poster_path || "",
+      backdrop_path: movie.backdrop_path || "",
+      genre_ids: movie.genre_ids || [],
+      vote_average: movie.vote_average || 0,
+      last_watched: serverTimestamp(),
+    };
+
+    console.log("📝 Adding to watch history:", historyData);
+
+    // Use merge to update last_watched if already exists
+    await setDoc(historyRef, historyData, { merge: true });
+
+    console.log("✅ Watch history updated");
+  } catch (error) {
+    console.error("❌ Add to watch history error:", error);
+    // Silent fail - don't show toast for analytics
+  }
+};
+
+/**
+ * [PHASE 2] Update watch progress (% watched)
+ * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID
+ * @param {Object} movieData - Movie data with id, title, poster_path, etc
+ * @param {number} progress - Current playback time (seconds)
+ * @param {number} duration - Total video duration (seconds)
+ */
+/**
+ * [PHASE 2] Update watch progress (% watched)
+ * Fixed: NaN validation, detailed logging, type field
+ */
+const updateWatchProgress = async (
+  user,
+  profileId,
+  movieData,
+  progress,
+  duration
+) => {
+  console.log("📝 [Firebase] updateWatchProgress called with:", {
+    userId: user?.uid,
+    profileId,
+    movieId: movieData?.id,
+    movieTitle: movieData?.title || movieData?.name,
+    progress,
+    duration,
+  });
+
+  try {
+    if (!user || !user.uid || !profileId || !movieData?.id) {
+      console.warn("⚠️ [Firebase] updateWatchProgress: Missing required data", {
+        hasUser: !!user?.uid,
+        hasProfileId: !!profileId,
+        hasMovieId: !!movieData?.id,
+      });
+      return;
+    }
+
+    // 1. Validate input numbers to prevent NaN
+    const safeProgress = Number(progress) || 0;
+    const safeDuration = Number(duration) || 0;
+
+    console.log("🔢 [Firebase] After Number conversion:", {
+      safeProgress,
+      safeDuration,
+    });
+
+    if (isNaN(safeProgress) || isNaN(safeDuration)) {
+      console.warn("⚠️ [Firebase] Invalid progress/duration:", {
+        progress,
+        duration,
+      });
+      return;
+    }
+
+    if (safeDuration === 0) {
+      console.warn("⚠️ [Firebase] Duration is 0, cannot calculate percentage");
+      return;
+    }
+
+    // 2. Calculate percentage safely
+    let percentage = 0;
+    if (safeDuration > 0) {
+      percentage = (safeProgress / safeDuration) * 100;
+      percentage = Math.min(Math.round(percentage * 100) / 100, 100); // Cap at 100%, round to 2 decimals
+    }
+
+    console.log("📊 [Firebase] Calculated percentage:", percentage);
+
+    const historyRef = doc(
+      db,
+      "users",
+      user.uid,
+      "profiles",
+      profileId,
+      "watchHistory",
+      String(movieData.id)
+    );
+
+    // 3. Save to Firestore
+    const dataToSave = {
+      id: movieData.id,
+      title: movieData.title || movieData.name || "Untitled",
+      poster_path: movieData.poster_path || "",
+      backdrop_path: movieData.backdrop_path || "",
+      // Progress data
+      progress: Math.round(safeProgress),
+      duration: Math.round(safeDuration),
+      percentage: percentage,
+      last_watched: serverTimestamp(),
+      // Metadata
+      genre_ids:
+        movieData.genres?.map((g) => g.id) || movieData.genre_ids || [],
+      vote_average: movieData.vote_average || 0,
+      type: movieData.title ? "movie" : "tv",
+    };
+
+    console.log("💾 [Firebase] Saving to Firestore:", dataToSave);
+
+    await setDoc(historyRef, dataToSave, { merge: true });
+
+    console.log(
+      `✅ [Firebase] Successfully saved: ${percentage.toFixed(
+        1
+      )}% (${Math.round(safeProgress)}s / ${Math.round(safeDuration)}s) for "${
+        dataToSave.title
+      }"`
+    );
+  } catch (error) {
+    console.error("❌ [Firebase] Error updating watch progress:", error);
+    console.error("❌ [Firebase] Error details:", error.message, error.stack);
+  }
+};
+
+/**
+ * [NEW APPROACH] Get specific movie watch history for resume playback
+ * Player will use this to get the start time natively
+ */
+const getSpecificMovieHistory = async (userId, profileId, movieId) => {
+  try {
+    if (!userId || !profileId || !movieId) return null;
+
+    const docRef = doc(
+      db,
+      "users",
+      userId,
+      "profiles",
+      profileId,
+      "watchHistory",
+      String(movieId)
+    );
+
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log(`📖 [Firebase] Found history for movie ${movieId}:`, {
+        progress: data.progress,
+        percentage: data.percentage,
+        duration: data.duration,
+      });
+      return data;
+    } else {
+      console.log(`ℹ️ [Firebase] No history found for movie ${movieId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error("❌ Error fetching specific movie history:", error);
+    return null;
+  }
+};
+
+/**
+ * [PHASE 2] Get continue watching list
+ * Fixed: Lower threshold to 0% for testing (change to 5% in production)
+ * @param {string} uid - User ID (not user object)
+ * @param {string} profileId - Profile ID
+ * @returns {Promise<Array>} Array of partially watched movies
+ */
+const getContinueWatching = async (uid, profileId) => {
+  try {
+    if (!uid || !profileId) {
+      console.warn(
+        "⚠️ [Firebase] getContinueWatching: Missing uid or profileId"
+      );
+      return [];
+    }
+
+    const historyRef = collection(
+      db,
+      "users",
+      uid,
+      "profiles",
+      profileId,
+      "watchHistory"
+    );
+
+    // Fetch 20 most recent watches (increased from 10)
+    const q = query(historyRef, orderBy("last_watched", "desc"), limit(20));
+    const snapshot = await getDocs(q);
+
+    console.log(`🔍 [Firebase] Fetched ${snapshot.size} watch history items`);
+
+    // Client-side filter: only partially watched movies
+    const continueWatching = [];
+    const debugInfo = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const pct = Number(data.percentage) || 0;
+
+      // Debug log for each item
+      debugInfo.push({
+        title: data.title,
+        percentage: pct,
+        hasPercentage: data.percentage !== undefined,
+        passed: pct > 0 && pct < 95,
+      });
+
+      // FIX: Changed from > 5 to > 0 for easier testing
+      // TODO: Change back to > 5 for production
+      if (pct >= 0 && pct < 95) {
+        continueWatching.push({
+          firestoreId: doc.id,
+          ...data,
+        });
+      }
+    });
+
+    console.log(
+      `▶️ [Firebase] Continue Watching: ${continueWatching.length} items (filtered from ${snapshot.size})`
+    );
+    console.table(debugInfo);
+
+    return continueWatching;
+  } catch (error) {
+    console.error("❌ [Firebase] Error fetching continue watching:", error);
+    return [];
+  }
+};
+
+/**
+ * Get watch history for recommendations (client-side query)
+ * @param {Object} user - Firebase user object
+ * @param {string} profileId - Profile ID
+ * @param {number} limit - Number of recent movies to fetch
+ * @returns {Promise<Array>} Array of watched movies
+ */
+const getWatchHistory = async (user, profileId, limitCount = 3) => {
+  try {
+    if (!user || !user.uid) {
+      console.error("User not authenticated");
+      return [];
+    }
+
+    if (!profileId) {
+      console.error("No profile ID");
+      return [];
+    }
+
+    const historyRef = collection(
+      db,
+      "users",
+      user.uid,
+      "profiles",
+      profileId,
+      "watchHistory"
+    );
+
+    const q = query(
+      historyRef,
+      orderBy("last_watched", "desc"),
+      limit(limitCount)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const history = [];
+    snapshot.forEach((doc) => {
+      history.push({
+        firestoreId: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    console.log(`📚 Fetched ${history.length} watch history items`);
+    return history;
+  } catch (error) {
+    console.error("❌ Get watch history error:", error);
+    return [];
+  }
+};
+
 export {
   app,
   auth,
@@ -446,4 +778,9 @@ export {
   subscribeToSavedShows,
   deleteProfile,
   updateProfile,
+  addToWatchHistory,
+  getWatchHistory,
+  updateWatchProgress, // PHASE 2: Progress tracking
+  getContinueWatching, // PHASE 2: Continue watching
+  getSpecificMovieHistory, // PHASE 2: Native resume
 };

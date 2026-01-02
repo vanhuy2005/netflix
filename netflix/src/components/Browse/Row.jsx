@@ -11,6 +11,13 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const rowRef = useRef(null);
 
+  // Preload animation state for staggered entry
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 50); // small delay then animate in
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -99,7 +106,6 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
   if (movies.length === 0) return null;
 
   return (
-    // [FIX 1] hover:z-50: Đảm bảo hàng đang hover đè lên hàng bên dưới/trên
     <div className="w-full relative z-10 group/row hover:z-50 mb-4 md:mb-8">
       {/* Row Title */}
       <h2 className="text-sm md:text-xl lg:text-2xl font-bold mb-2 md:mb-3 text-[#e5e5e5] pl-[4%] md:pl-[60px] hover:text-white transition-colors cursor-pointer flex items-center gap-2">
@@ -115,21 +121,22 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
 
       {/* Movies Container */}
       <div className="relative group">
-        {/* Left Arrow */}
+        {/* Left Arrow - Updated Design */}
         {showLeftArrow && (
           <button
             onClick={() => handleScroll("left")}
-            className="absolute left-0 top-0 bottom-0 z-40 w-12 bg-black/50 hover:bg-black/70 hidden md:flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 rounded-r-md"
+            className="absolute left-0 top-24 bottom-24 z-40 w-12 md:w-16 
+              bg-gradient-to-r from-black/70 via-black/30 to-transparent 
+              hover:from-black/90 hover:via-black/50 hover:to-transparent
+              hidden md:flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-r-md"
           >
-            <FaChevronLeft className="text-2xl text-white" />
+            <FaChevronLeft className="text-white text-3xl md:text-4xl drop-shadow-lg transform transition hover:scale-125" />
           </button>
         )}
 
         {/* Scrollable Area */}
         <div
           ref={rowRef}
-          // [FIX 2] Tăng padding dọc lên py-24 (96px) để đủ chỗ cho thẻ phóng to 1.8 lần
-          // Sử dụng negative margin -my-24 để không làm vỡ layout chung của trang
           className="flex flex-nowrap items-center gap-2 md:gap-3 overflow-x-scroll scrollbar-hide scroll-smooth w-full px-[4%] md:px-[60px] py-24 -my-24"
           style={{
             scrollbarWidth: "none",
@@ -137,24 +144,34 @@ const Row = ({ title, fetchUrl, isLarge = false }) => {
           }}
         >
           {movies.map((movie, index) => (
-            <MovieCard
+            <div
               key={movie.id}
-              movie={movie}
-              isLarge={isLarge}
-              isFirst={index === 0}
-              isLast={index === movies.length - 1}
-              fluid={false} 
-            />
+              className={`flex-shrink-0 transition-opacity duration-300 ease-out ${
+                mounted ? "opacity-100" : "opacity-0"
+              }`}
+              style={{ transitionDelay: `${index * 50}ms` }}
+            >
+              <MovieCard
+                movie={movie}
+                isLarge={isLarge}
+                isFirst={index === 0}
+                isLast={index === movies.length - 1}
+                fluid={false}
+              />
+            </div>
           ))}
         </div>
 
-        {/* Right Arrow */}
+        {/* Right Arrow - Updated Design */}
         {showRightArrow && (
           <button
             onClick={() => handleScroll("right")}
-            className="absolute right-0 top-0 bottom-0 z-40 w-12 bg-black/50 hover:bg-black/70 hidden md:flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 rounded-l-md"
+            className="absolute right-0 top-24 bottom-24 z-40 w-12 md:w-16 
+              bg-gradient-to-l from-black/70 via-black/30 to-transparent 
+              hover:from-black/90 hover:via-black/50 hover:to-transparent
+              hidden md:flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-l-md"
           >
-            <FaChevronRight className="text-2xl text-white" />
+            <FaChevronRight className="text-white text-3xl md:text-4xl drop-shadow-lg transform transition hover:scale-125" />
           </button>
         )}
       </div>
