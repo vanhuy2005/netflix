@@ -9,12 +9,48 @@ import MovieCard from "./MovieCard";
 /**
  * Recommendation Row Component
  * Displays personalized movie recommendations based on watch history
+ * PHASE 1.2: Implements lazy loading with IntersectionObserver
  */
 const RecommendationRow = ({ user, profileId }) => {
-  const { movies, reason, loading } = useSmartRecommendations(user, profileId);
+  // PHASE 1.2: Lazy loading state
+  const [shouldFetch, setShouldFetch] = useState(false);
+  const containerRef = useRef(null);
+
+  // PHASE 1.2: Pass shouldFetch to hook to control execution
+  const { movies, reason, loading } = useSmartRecommendations(user, profileId, shouldFetch);
+  
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const rowRef = useRef(null);
+
+  // ========================================
+  // PHASE 1.2: IntersectionObserver for Lazy Loading
+  // ========================================
+  useEffect(() => {
+    // If already fetched, don't observe anymore
+    if (shouldFetch) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // When component enters viewport (or gets close)
+        if (entry.isIntersecting) {
+          console.log("👀 [UI] User scrolled near Recommendations → Activating Engine!");
+          setShouldFetch(true);
+          observer.disconnect(); // Stop observing after trigger
+        }
+      },
+      {
+        rootMargin: "200px", // Trigger 200px before visible (smoother UX)
+        threshold: 0.1,
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [shouldFetch]);
 
   // ========================================
   // Scroll Navigation
@@ -55,20 +91,32 @@ const RecommendationRow = ({ user, profileId }) => {
     };
   }, [movies]);
 
+  // ========================================
+  // PHASE 1.2: Render States
+  // ========================================
+  // 1. Not fetched yet → Show placeholder (invisible, but measurable for IntersectionObserver)
+  if (!shouldFetch) {
+    return <div ref={containerRef} className="w-full h-40" />; 
+  }
+
+  // 2. Fetching → Show skeleton (professional loading state)
   if (loading) return <RecommendationRowSkeleton />;
-  if (movies.length === 0) return null;
+  
+  // 3. No movies → Hide component (Netflix-style - don't show empty states)
+  if (!movies || movies.length === 0) return null;
 
   return (
     <div className="relative w-full mb-4 md:mb-8 z-30 hover:z-50 group/row">
-      {/* Title */}
+      {/* Title - Dynamic based on backend reason */}
       <div className="pl-[4%] md:pl-[60px] mb-2 flex items-center gap-2 relative z-20">
         <motion.h2
+          key={reason} // Re-animate when reason changes
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
           className="text-sm md:text-xl lg:text-2xl font-bold mb-2 md:mb-3 text-[#e5e5e5] hover:text-white transition-colors cursor-pointer"
         >
-          {reason || "Recommended for You"}
+          {reason || "Gợi ý cho bạn"}
         </motion.h2>
       </div>
 

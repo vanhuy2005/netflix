@@ -21,6 +21,7 @@ import {
 } from "../../config/firebase";
 import { getImageUrl } from "../../utils/tmdbApi";
 import requests from "../../api/requests";
+import { normalizeMovieId } from "../../utils/youtubeMap";
 
 const Billboard = () => {
   const navigate = useNavigate();
@@ -338,7 +339,11 @@ const Billboard = () => {
               {/* BUTTONS - Bo tròn góc */}
               <div className="flex items-center gap-2 md:gap-3">
                 <button
-                  onClick={() => navigate(`/player/${movie?.id}`)}
+                  onClick={() => {
+                    const validId = normalizeMovieId(movie?.id);
+                    console.log(`🔧 [Billboard] Play clicked: ${movie?.id} → ${validId}`);
+                    navigate(`/player/${validId}`);
+                  }}
                   className="flex items-center gap-1.5 md:gap-2 bg-white text-black px-3 md:px-5 py-1.5 md:py-2 hover:bg-white/90 transition font-bold text-xs md:text-sm"
                 >
                   <FaPlay className="text-sm md:text-base" /> Phát

@@ -92,7 +92,7 @@ const ContinueWatchingRow = ({ user, profileId, profileName = "You" }) => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-sm md:text-xl lg:text-2xl font-bold mb-2 md:mb-3 text-[#e5e5e5] hover:text-white transition-colors cursor-pointer"
         >
-          Continue Watching For {profileName}
+          Tiếp Tục Xem Cho {profileName}
         </motion.h2>
       </div>
 

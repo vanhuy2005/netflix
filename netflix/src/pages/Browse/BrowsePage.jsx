@@ -41,6 +41,7 @@ const BrowsePage = () => {
   const [user, setUser] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [profileName, setProfileName] = useState("You"); // [PHASE 2] Profile Name
+  const [profileData, setProfileData] = useState(null); // PHASE 1.1: Full profile data
   const [visibleRows, setVisibleRows] = useState(ROWS_PER_BATCH);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -62,6 +63,7 @@ const BrowsePage = () => {
             const profile = JSON.parse(currentProfile);
             setProfileId(profile.id);
             setProfileName(profile.name || "You");
+            setProfileData(profile); // PHASE 1.1: Store full profile data
           }
         } catch (error) {
           console.error("Error loading profile:", error);
@@ -94,6 +96,12 @@ const BrowsePage = () => {
   const showRecommendations = user && profileId;
   const hasContinueWatching = continueMovies && continueMovies.length > 0;
 
+  // PHASE 1.1: Create enhanced user object with profile data
+  const userWithProfile = user && profileData ? {
+    ...user,
+    currentProfile: profileData
+  } : user;
+
   return (
     <div className="min-h-screen w-full bg-[#141414] overflow-x-hidden">
       <Navbar />
@@ -124,7 +132,8 @@ const BrowsePage = () => {
             hasContinueWatching ? "mt-2" : "-mt-4 md:-mt-6"
           }`}
         >
-          <RecommendationRow user={user} profileId={profileId} />
+          {/* PHASE 1.1: Pass enhanced user object with currentProfile */}
+          <RecommendationRow user={userWithProfile} profileId={profileId} />
         </div>
       )}
 

@@ -14,6 +14,7 @@ import {
 } from "../../config/firebase";
 import { getImageUrl } from "../../utils/tmdbApi";
 import { useModal } from "../../context/ModalContext";
+import { normalizeMovieId } from "../../utils/youtubeMap";
 
 const MovieCard = ({
   movie,
@@ -191,10 +192,13 @@ const MovieCard = ({
     e.stopPropagation();
     e.preventDefault();
 
+    // NORMALIZE ID before navigation
+    const validId = normalizeMovieId(movie.id);
+    
     // [SIMPLIFIED] Player will fetch resume data itself from Firebase
     // No need to pass state - cleaner and works even on refresh
-    navigate(`/player/${movie.id}`);
-    console.log(`▶️ [MovieCard] Navigating to player for movie ${movie.id}`);
+    navigate(`/player/${validId}`);
+    console.log(`▶️ [MovieCard] Navigating to player (normalized): ${movie.id} → ${validId}`);
   };
 
   const handleDetailsClick = (e) => {

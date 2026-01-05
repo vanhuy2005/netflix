@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if request is from authenticated user
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the data
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow Cloud Functions (Admin SDK) to read/write
+      // Allow users to read/write their own data
+      allow read, write: if isOwner(userId);
+      
+      // Profiles subcollection
+      match /profiles/{profileId} {
+        // Allow users to manage their profiles
+        allow read, write: if isOwner(userId);
+        
+        // Watch History (allow Cloud Functions to read for recommendations)
+        match /watchHistory/{movieId} {
+          allow read: if isOwner(userId);  // User can read their own
+          allow write: if isOwner(userId); // User can write their own
+        }
+        
+        // Saved Shows
+        match /savedShows/{movieId} {
+          allow read, write: if isOwner(userId);
+        }
+        
+        // Recommendations Cache (Cloud Function writes here)
+        match /recs/{docId} {
+          allow read: if isOwner(userId);   // User can read
+          allow write: if isOwner(userId);  // User can write (for cache invalidation)
+        }
+      }
+    }
+  }
+}

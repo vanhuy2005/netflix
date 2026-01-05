@@ -19,8 +19,12 @@ import {
   getDocs,
   getDoc,
   serverTimestamp,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { toast } from "react-toastify";
+import { normalizeMovieId, normalizeMovieObject, autoNormalizeMovieObject } from "../utils/youtubeMap";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -206,6 +210,10 @@ const saveShow = async (user, profileId, movie) => {
       throw new Error("Invalid movie data");
     }
 
+    // 🔧 AUTO-NORMALIZE: Validate and fix movie ID automatically
+    const normalizedMovie = await autoNormalizeMovieObject(movie);
+    const validId = normalizedMovie.id;
+
     // NEW PATH: users/{uid}/profiles/{profileId}/savedShows/{movieId}
     const showRef = doc(
       db,
@@ -214,26 +222,36 @@ const saveShow = async (user, profileId, movie) => {
       "profiles",
       profileId,
       "savedShows",
-      String(movie.id)
+      String(validId)
     );
 
-    const movieData = {
-      id: movie.id,
-      title: movie.title || movie.name || "Untitled",
-      backdrop_path: movie.backdrop_path || "",
-      poster_path: movie.poster_path || "",
-      overview: movie.overview || "",
-      vote_average: movie.vote_average || 0,
-      release_date: movie.release_date || movie.first_air_date || "",
+    // PHASE 1.1: Profile ref for savedMovieIds array
+    const profileRef = doc(db, "users", user.uid, "profiles", profileId);
+
+    const showData = {
+      id: validId,
+      title: normalizedMovie.title || normalizedMovie.name || "Untitled",
+      backdrop_path: normalizedMovie.backdrop_path || "",
+      poster_path: normalizedMovie.poster_path || "",
+      overview: normalizedMovie.overview || "",
+      vote_average: normalizedMovie.vote_average || 0,
+      release_date: normalizedMovie.release_date || normalizedMovie.first_air_date || "",
       savedAt: serverTimestamp(),
     };
 
-    console.log("💾 Saving to Firestore:", movieData);
+    console.log("💾 Saving to Firestore:", showData);
 
-    // Save movie data
-    await setDoc(showRef, movieData);
+    // PHASE 1.1: Update both subcollection and array simultaneously
+    await Promise.all([
+      // 1. Save full movie data in subcollection (for My List page)
+      setDoc(showRef, showData),
+      // 2. Add movie ID to profile array (for fast filtering in recommendations)
+      updateDoc(profileRef, {
+        savedMovieIds: arrayUnion(validId)
+      })
+    ]);
 
-    console.log("✅ Movie saved successfully!");
+    console.log("✅ Movie saved successfully (both subcollection + array)!");
     toast.success("✓ Đã thêm vào danh sách của bạn");
   } catch (error) {
     console.error("❌ Save show error:", error);
@@ -274,6 +292,10 @@ const removeShow = async (user, profileId, movieId) => {
       throw new Error("Invalid movie ID");
     }
 
+    // NORMALIZE ID: Ensure we use correct TMDB ID
+    const validId = normalizeMovieId(movieId);
+    console.log("🔧 [Remove] Normalized ID:", movieId, "→", validId);
+
     // NEW PATH: Delete from profile-specific savedShows
     const showRef = doc(
       db,
@@ -282,13 +304,25 @@ const removeShow = async (user, profileId, movieId) => {
       "profiles",
       profileId,
       "savedShows",
-      String(movieId)
+      String(validId)
     );
 
-    console.log("🗑️ Deleting from Firestore:", showRef.path);
-    await deleteDoc(showRef);
+    // PHASE 1.1: Profile ref for savedMovieIds array
+    const profileRef = doc(db, "users", user.uid, "profiles", profileId);
 
-    console.log("✅ Movie removed successfully!");
+    console.log("🗑️ Deleting from Firestore:", showRef.path);
+    
+    // PHASE 1.1: Update both subcollection and array simultaneously
+    await Promise.all([
+      // 1. Delete from subcollection
+      deleteDoc(showRef),
+      // 2. Remove movie ID from profile array
+      updateDoc(profileRef, {
+        savedMovieIds: arrayRemove(validId)
+      })
+    ]);
+
+    console.log("✅ Movie removed successfully (both subcollection + array)!");
     toast.success("✓ Đã xóa khỏi danh sách");
   } catch (error) {
     console.error("❌ Remove show error:", error);
@@ -460,6 +494,11 @@ const addToWatchHistory = async (user, profileId, movie) => {
       return;
     }
 
+    // 🔧 AUTO-NORMALIZE: Validate and fix movie ID automatically
+    const normalizedMovie = await autoNormalizeMovieObject(movie);
+    const validId = normalizedMovie.id;
+    console.log("🔧 [History] Normalized ID:", movie.id, "→", validId);
+
     // Path: users/{uid}/profiles/{profileId}/watchHistory/{movieId}
     const historyRef = doc(
       db,
@@ -468,16 +507,16 @@ const addToWatchHistory = async (user, profileId, movie) => {
       "profiles",
       profileId,
       "watchHistory",
-      String(movie.id)
+      String(validId)
     );
 
     const historyData = {
-      id: movie.id,
-      title: movie.title || movie.name || "Untitled",
-      poster_path: movie.poster_path || "",
-      backdrop_path: movie.backdrop_path || "",
-      genre_ids: movie.genre_ids || [],
-      vote_average: movie.vote_average || 0,
+      id: validId,
+      title: normalizedMovie.title || normalizedMovie.name || "Untitled",
+      poster_path: normalizedMovie.poster_path || "",
+      backdrop_path: normalizedMovie.backdrop_path || "",
+      genre_ids: normalizedMovie.genre_ids || [],
+      vote_average: normalizedMovie.vote_average || 0,
       last_watched: serverTimestamp(),
     };
 
@@ -531,6 +570,11 @@ const updateWatchProgress = async (
       return;
     }
 
+    // 🔧 AUTO-NORMALIZE: Validate and fix movie ID automatically
+    const normalizedMovie = await autoNormalizeMovieObject(movieData);
+    const validId = normalizedMovie.id;
+    console.log("🔧 [Progress] Normalized ID:", movieData.id, "→", validId);
+
     // 1. Validate input numbers to prevent NaN
     const safeProgress = Number(progress) || 0;
     const safeDuration = Number(duration) || 0;
@@ -569,15 +613,15 @@ const updateWatchProgress = async (
       "profiles",
       profileId,
       "watchHistory",
-      String(movieData.id)
+      String(validId)
     );
 
     // 3. Save to Firestore
     const dataToSave = {
-      id: movieData.id,
-      title: movieData.title || movieData.name || "Untitled",
-      poster_path: movieData.poster_path || "",
-      backdrop_path: movieData.backdrop_path || "",
+      id: validId,
+      title: normalizedMovie.title || normalizedMovie.name || "Untitled",
+      poster_path: normalizedMovie.poster_path || "",
+      backdrop_path: normalizedMovie.backdrop_path || "",
       // Progress data
       progress: Math.round(safeProgress),
       duration: Math.round(safeDuration),
@@ -585,9 +629,9 @@ const updateWatchProgress = async (
       last_watched: serverTimestamp(),
       // Metadata
       genre_ids:
-        movieData.genres?.map((g) => g.id) || movieData.genre_ids || [],
-      vote_average: movieData.vote_average || 0,
-      type: movieData.title ? "movie" : "tv",
+        normalizedMovie.genres?.map((g) => g.id) || normalizedMovie.genre_ids || [],
+      vote_average: normalizedMovie.vote_average || 0,
+      type: normalizedMovie.title ? "movie" : "tv",
     };
 
     console.log("💾 [Firebase] Saving to Firestore:", dataToSave);
@@ -689,12 +733,12 @@ const getContinueWatching = async (uid, profileId) => {
         title: data.title,
         percentage: pct,
         hasPercentage: data.percentage !== undefined,
-        passed: pct > 0 && pct < 95,
+        passed: pct > 0 && pct < 90,
       });
 
       // FIX: Changed from > 5 to > 0 for easier testing
       // TODO: Change back to > 5 for production
-      if (pct >= 0 && pct < 95) {
+      if (pct >= 0 && pct < 90) {
         continueWatching.push({
           firestoreId: doc.id,
           ...data,
