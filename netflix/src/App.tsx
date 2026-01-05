@@ -38,13 +38,19 @@ import Search from "./pages/Search/Search";
 // @ts-expect-error - Component is in JSX
 import ProfileGate from "./pages/Profile/ProfileGate";
 // @ts-expect-error - Component is in JSX
+import MigrationHelper from "./pages/Debug/MigrationHelper";
+// @ts-expect-error - Component is in JSX
 import NetflixSpinner from "./components/common/NetflixSpinner";
 
 // Context
 // @ts-expect-error - Context is in JSX
 import { TransitionProvider } from "./context/TransitionContext";
+  // @ts-expect-error - Context is in JSX
+import { ModalProvider } from "./context/ModalContext";
 // @ts-expect-error - Component is in JSX
 import SplashScreen from "./components/SplashScreen";
+// @ts-expect-error - Component is in JSX
+import MovieModal from "./components/Modal/MovieModal";
 
 import "./App.css";
 
@@ -132,120 +138,137 @@ function App() {
   }
 
   return (
-    <TransitionProvider>
-      <Router>
-        {/* Splash Screen - Hoisted outside Routes to persist across navigation */}
-        <SplashScreen />
+    <ModalProvider>
+      <TransitionProvider>
+        <Router>
+          {/* Splash Screen - Hoisted outside Routes to persist across navigation */}
+          <SplashScreen />
 
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="dark"
-        />
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+          />
 
-        <Routes>
-          {/* Public Routes */}
-          <Route
-            path="/"
-            element={
-              user ? (
-                hasProfile ? (
-                  <Navigate to="/browse" replace />
+          <Routes>
+            {/* Public Routes */}
+            <Route
+              path="/"
+              element={
+                user ? (
+                  hasProfile ? (
+                    <Navigate to="/browse" replace />
+                  ) : (
+                    <Navigate to="/profiles" replace />
+                  )
                 ) : (
-                  <Navigate to="/profiles" replace />
+                  <LandingPage />
                 )
-              ) : (
-                <LandingPage />
-              )
-            }
-          />
-          <Route
-            path="/login"
-            element={
-              user ? (
-                hasProfile ? (
-                  <Navigate to="/browse" replace />
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                user ? (
+                  hasProfile ? (
+                    <Navigate to="/browse" replace />
+                  ) : (
+                    <Navigate to="/profiles" replace />
+                  )
                 ) : (
-                  <Navigate to="/profiles" replace />
+                  <LoginPage />
                 )
-              ) : (
-                <LoginPage />
-              )
-            }
-          />
-          <Route path="/signup/step1" element={<SignupStep1 />} />
-          <Route path="/signup/step2" element={<SignupStep2 />} />
-          <Route path="/signup/step3" element={<SignupStep3 />} />
-          <Route path="/complete-signup" element={<CompleteSignupPage />} />
+              }
+            />
+            <Route path="/signup/step1" element={<SignupStep1 />} />
+            <Route path="/signup/step2" element={<SignupStep2 />} />
+            <Route path="/signup/step3" element={<SignupStep3 />} />
+            <Route path="/complete-signup" element={<CompleteSignupPage />} />
 
-          {/* Profile Gate - No profile required (user can create/select here) */}
-          <Route
-            path="/profiles"
-            element={
-              <ProtectedRoute
-                user={user}
-                hasProfile={hasProfile}
-                requireProfile={false}
-              >
-                <ProfileGate />
-              </ProtectedRoute>
-            }
-          />
+            {/* Profile Gate - No profile required (user can create/select here) */}
+            <Route
+              path="/profiles"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  hasProfile={hasProfile}
+                  requireProfile={false}
+                >
+                  <ProfileGate />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected Routes - Require both auth AND profile selection */}
-          <Route
-            path="/browse"
-            element={
-              <ProtectedRoute user={user} hasProfile={hasProfile}>
-                <BrowsePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute user={user} hasProfile={hasProfile}>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/player/:id"
-            element={
-              <ProtectedRoute user={user} hasProfile={hasProfile}>
-                <Player />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/my-list"
-            element={
-              <ProtectedRoute user={user} hasProfile={hasProfile}>
-                <MyList />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <ProtectedRoute user={user} hasProfile={hasProfile}>
-                <Search />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Routes - Require both auth AND profile selection */}
+            <Route
+              path="/browse"
+              element={
+                <ProtectedRoute user={user} hasProfile={hasProfile}>
+                  <BrowsePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute user={user} hasProfile={hasProfile}>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/player/:id"
+              element={
+                <ProtectedRoute user={user} hasProfile={hasProfile}>
+                  <Player />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-list"
+              element={
+                <ProtectedRoute user={user} hasProfile={hasProfile}>
+                  <MyList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <ProtectedRoute user={user} hasProfile={hasProfile}>
+                  <Search />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Catch all - redirect to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </TransitionProvider>
+            {/* Dev Tools - Only accessible in development */}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/migration"
+                element={
+                  <ProtectedRoute user={user} hasProfile={hasProfile}>
+                    <MigrationHelper />
+                  </ProtectedRoute>
+                }
+              />
+            )}
+
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+
+          {/* Global Movie Modal - Rendered outside Routes for overlay */}
+          <MovieModal />
+        </Router>
+      </TransitionProvider>
+    </ModalProvider>
   );
 }
 

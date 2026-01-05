@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Netflix Sans Font */
+/* --- 1. FONTS --- */
 @font-face {
   font-family: "Netflix Sans";
   src: url("https://assets.nflxext.com/ffe/siteui/fonts/netflix-sans/v3/NetflixSans-Regular.woff2")
@@ -29,129 +29,151 @@
   font-display: swap;
 }
 
-/* Base Layer Setup */
+/* --- 2. BASE SETUP (FIX SCROLL) --- */
 @layer base {
   * {
     @apply box-border;
-  }
-
-  html,
-  body,
-  #root {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
-
-  body {
-    @apply bg-netflix-deepBlack text-netflix-white antialiased;
-    font-family: "Inter", "Netflix Sans", "Helvetica Neue", Helvetica, Arial,
-      sans-serif;
   }
 
   html {
     scroll-behavior: smooth;
   }
 
+  body {
+    @apply bg-[#141414] text-white antialiased;
+    font-family: "Netflix Sans", "Inter", "Helvetica Neue", Helvetica, Arial,
+      sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden; /* Chỉ ẩn thanh cuộn ngang */
+    overflow-y: auto; /* Cho phép cuộn dọc */
+  }
+
+  /* Đảm bảo App luôn full chiều cao */
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Khi Modal mở -> Thêm class này vào body để khóa cuộn */
+  body.modal-open {
+    overflow: hidden !important;
+  }
+
   /* Custom Scrollbar - Netflix Style */
   ::-webkit-scrollbar {
-    width: 10px;
+    width: 8px; /* Độ rộng vừa phải */
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-netflix-deepBlack;
+    background: #141414;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-netflix-gray/60 rounded-full;
-    transition: background 0.3s ease;
+    background: #404040;
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-netflix-lightGray/80;
+    background: #6b6b6b;
   }
 }
 
-/* Custom Utilities */
+/* --- 3. CUSTOM COMPONENTS (SLIDER CHO PLAYER) --- */
+@layer components {
+  /* Netflix Red Slider (Dùng cho Volume & Progress Bar) */
+  .netflix-slider {
+    -webkit-appearance: none;
+    background: transparent;
+    width: 100%;
+    cursor: pointer;
+    height: 4px; /* Độ dày thanh */
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .netflix-slider:focus {
+    outline: none;
+  }
+
+  /* Chrome/Safari/Edge Thumb */
+  .netflix-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: #e50914; /* Đỏ Netflix */
+    cursor: pointer;
+    margin-top: -6px; /* Căn giữa thumb với track */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    transform: scale(0); /* Mặc định ẩn thumb */
+    transition: transform 0.1s ease-in-out;
+  }
+
+  /* Chrome/Safari/Edge Track */
+  .netflix-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: #404040;
+    border-radius: 2px;
+  }
+
+  /* Hiện Thumb khi hover vào thanh slider */
+  .group:hover .netflix-slider::-webkit-slider-thumb,
+  .netflix-slider:hover::-webkit-slider-thumb {
+    transform: scale(1);
+  }
+}
+
+/* --- 4. UTILITIES --- */
 @layer utilities {
   .text-shadow {
-    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
   }
 
   .text-shadow-lg {
-    text-shadow: 0px 4px 12px rgba(0, 0, 0, 0.9);
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
   }
 
+  /* Gradient đen mờ từ dưới lên (Dùng cho Modal/Hero) */
   .gradient-overlay {
     background: linear-gradient(
       to top,
       rgba(20, 20, 20, 1) 0%,
+      rgba(20, 20, 20, 0.6) 40%,
       transparent 100%
     );
   }
 
-  .netflix-gradient {
-    background: linear-gradient(90deg, #141414 0%, transparent 100%);
-  }
-
+  /* Ẩn thanh cuộn nhưng vẫn cuộn được */
   .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
-
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+    display: none; /* Chrome, Safari and Opera */
   }
 
-  /* Premium Custom Scrollbar */
+  /* Premium Scrollbar (Cho Modal nội dung dài) */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
-
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(20, 20, 20, 0.5);
-    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
   }
-
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(229, 9, 20, 0.6);
+    background: rgba(255, 255, 255, 0.2);
     border-radius: 10px;
-    transition: background 0.3s ease;
   }
-
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(229, 9, 20, 0.9);
-  }
-
-  /* Netflix Premium Typography */
-  .font-netflix-light {
-    font-weight: 300;
-    letter-spacing: -0.01em;
-  }
-
-  .font-netflix-normal {
-    font-weight: 400;
-    letter-spacing: -0.005em;
-  }
-
-  .font-netflix-medium {
-    font-weight: 500;
-    letter-spacing: 0;
-  }
-
-  /* Premium Input Focus - No Borders, Just Glow */
-  .input-netflix-focus {
-    @apply transition-all duration-200 ease-out;
-  }
-
-  .input-netflix-focus:focus {
-    @apply outline-none bg-opacity-90;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.4);
   }
 }
 
-/* Animations */
+/* --- 5. ANIMATIONS --- */
 
-/* Shake animation for wrong PIN */
+/* Shake (Sai mật khẩu) */
 @keyframes shake {
   0%,
   100% {
@@ -164,13 +186,11 @@
     transform: translateX(8px);
   }
 }
-
 .animate-shake {
   animation: shake 0.3s ease-in-out;
-  border-color: #ef4444 !important;
 }
 
-/* Breathing animation for avatars */
+/* Breathe (Avatar) */
 @keyframes breathe {
   0%,
   100% {
@@ -178,48 +198,30 @@
     opacity: 1;
   }
   50% {
-    transform: scale(1.02);
-    opacity: 0.95;
+    transform: scale(1.05);
+    opacity: 0.9;
   }
 }
-
 .animate-breathe {
   animation: breathe 3s ease-in-out infinite;
 }
 
-/* Fade In Up */
+/* Fade In Up (Modal xuất hiện) */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
 .animate-fadeInUp {
-  animation: fadeInUp 0.6s ease-out forwards;
+  animation: fadeInUp 0.5s ease-out forwards;
 }
 
-/* Slide Up Smooth (for modals) */
-@keyframes slideUpSmooth {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-slideUpSmooth {
-  animation: slideUpSmooth 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Shimmer Effect for Premium Skeleton Loading */
+/* Shimmer (Skeleton Loading) */
 @keyframes shimmer {
   0% {
     background-position: -1000px 0;
@@ -228,7 +230,6 @@
     background-position: 1000px 0;
   }
 }
-
 .animate-shimmer {
   background: linear-gradient(
     90deg,
@@ -240,4 +241,30 @@
   );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
+}
+
+/* Fade In (Resume Indicator) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards, fadeOut 0.4s ease-in 2.6s forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }

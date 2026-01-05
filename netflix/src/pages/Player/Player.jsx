@@ -1,377 +1,330 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import YouTube from "react-youtube";
+import axios from "axios";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  auth,
+  addToWatchHistory,
+  updateWatchProgress,
+  getSpecificMovieHistory,
+} from "../../config/firebase";
 import {
   IoArrowBack,
   IoPlay,
-  IoCloseOutline,
-  IoNotifications,
+  IoPause,
+  IoVolumeHigh,
+  IoVolumeMute,
+  IoReload,
 } from "react-icons/io5";
-import axios from "axios";
+import { getImageUrl } from "../../utils/tmdbApi";
 
 const Player = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const playerRef = useRef(null);
+  const intervalRef = useRef(null);
+  const controlsTimeoutRef = useRef(null);
 
-  // State management
+  // State UI
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+
+  // State Data
+  const [user, setUser] = useState(null);
   const [videoKey, setVideoKey] = useState(null);
   const [movieInfo, setMovieInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playerReady, setPlayerReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // State Resume Logic
+  const [initialStartTime, setInitialStartTime] = useState(0);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [isReadyToPlay, setIsReadyToPlay] = useState(false);
 
   const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
-  // Fetch movie data
+  // 1. Auth Listener
   useEffect(() => {
-    const fetchMovieData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsubscribe();
+  }, []);
 
-        // Fetch movie details
-        const movieResponse = await axios.get(
+  // 2. Data Fetching & Resume Logic
+  useEffect(() => {
+    const initPlayer = async () => {
+      if (!id) return;
+      try {
+        const movieRes = await axios.get(
           `https://api.themoviedb.org/3/movie/${id}`,
           {
-            params: {
-              api_key: TMDB_API_KEY,
-              language: "vi-VN",
-            },
+            params: { api_key: TMDB_API_KEY, language: "vi-VN" },
           }
         );
-        setMovieInfo(movieResponse.data);
+        setMovieInfo(movieRes.data);
 
-        // Fetch trailers
-        const videosResponse = await axios.get(
-          `https://api.themoviedb.org/3/movie/${id}/videos`,
-          {
-            params: {
-              api_key: TMDB_API_KEY,
-              language: "en-US",
-            },
-          }
-        );
+        const videoRes = await axios
+          .get(`https://api.themoviedb.org/3/movie/${id}/videos`, {
+            params: { api_key: TMDB_API_KEY, language: "en-US" },
+          })
+          .catch(() => ({ data: { results: [] } }));
 
-        const videos = videosResponse.data.results;
+        const videos = videoRes.data.results || [];
         const trailer =
-          videos.find((v) => v.type === "Trailer" && v.site === "YouTube") ||
-          videos.find((v) => v.type === "Teaser" && v.site === "YouTube") ||
+          videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
           videos.find((v) => v.site === "YouTube");
 
         if (trailer) {
           setVideoKey(trailer.key);
         } else {
-          setError("Rất tiếc, phim này chưa có trailer.");
+          setHasError(true);
+          setIsReadyToPlay(true);
+          return;
+        }
+
+        if (auth.currentUser) {
+          const currentProfile = localStorage.getItem("current_profile");
+          if (currentProfile) {
+            const profile = JSON.parse(currentProfile);
+            const history = await getSpecificMovieHistory(
+              auth.currentUser.uid,
+              profile.id,
+              id
+            );
+
+            if (history && history.progress > 10 && history.percentage < 95) {
+              setInitialStartTime(history.progress);
+              setShowResumePrompt(true);
+              setIsReadyToPlay(false);
+            } else {
+              setInitialStartTime(0);
+              setIsReadyToPlay(true);
+            }
+          } else {
+            setIsReadyToPlay(true);
+          }
+        } else {
+          setIsReadyToPlay(true);
         }
       } catch (err) {
-        console.error("❌ Lỗi tải dữ liệu:", err.message);
-        setError("Không thể tải thông tin phim. Vui lòng thử lại sau.");
-      } finally {
-        setLoading(false);
+        setHasError(true);
+        setIsReadyToPlay(true);
       }
     };
-
-    fetchMovieData();
+    initPlayer();
   }, [id, TMDB_API_KEY]);
 
-  // YouTube player options
+  // 3. Handlers
+  const handleResume = () => {
+    setShowResumePrompt(false);
+    setIsReadyToPlay(true);
+  };
+
+  const handleRestart = () => {
+    setInitialStartTime(0);
+    setShowResumePrompt(false);
+    setIsReadyToPlay(true);
+  };
+
   const opts = {
     height: "100%",
     width: "100%",
     playerVars: {
       autoplay: 1,
-      controls: 1,
-      rel: 0,
+      controls: 0,
+      disablekb: 0, // Vô hiệu hóa bàn phím YouTube (để dùng custom)
+      fs: 0,
+      iv_load_policy: 3, // Tắt chú thích
       modestbranding: 1,
-      playsinline: 1,
+      rel: 0, // Hạn chế video liên quan (nhưng không tắt hẳn được)
+      showinfo: 0,
+      start: Math.floor(initialStartTime),
     },
   };
 
-  // Event handlers
-  const handlePlayClick = () => {
-    if (videoKey) {
-      setIsPlaying(true);
+  const onPlayerReady = (e) => {
+    playerRef.current = e.target;
+    setIsPlaying(true);
+    if (user && movieInfo) {
+      const profile = JSON.parse(localStorage.getItem("current_profile"));
+      if (profile) {
+        addToWatchHistory(user, profile.id, movieInfo);
+        startProgressTracking(e.target, profile.id);
+      }
     }
   };
 
-  const handleClosePlayer = () => {
-    setIsPlaying(false);
-    setPlayerReady(false);
+  const onStateChange = (e) => {
+    if (e.data === 1) setIsPlaying(true);
+    if (e.data === 2 || e.data === 0) setIsPlaying(false);
   };
 
-  const handlePlayerReady = () => {
-    setPlayerReady(true);
+  const startProgressTracking = (player, profileId) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(async () => {
+      try {
+        if (player.getPlayerState() === 1) {
+          const currentTime = player.getCurrentTime();
+          const duration = player.getDuration();
+          if (currentTime > 1 && duration > 0) {
+            await updateWatchProgress(
+              user,
+              profileId,
+              movieInfo,
+              currentTime,
+              duration
+            );
+          }
+        }
+      } catch (err) {}
+    }, 5000);
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="h-screen w-screen bg-[#141414] flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-netflix-red border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  // Helper function to convert runtime to hours and minutes
-  const formatRuntime = (minutes) => {
-    if (!minutes) return "";
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying && !showResumePrompt) setShowControls(false);
+    }, 3000);
   };
 
-  // Calculate match score based on vote average (Netflix style)
-  const matchScore = movieInfo?.vote_average
-    ? Math.round(movieInfo.vote_average * 10)
-    : 0;
+  const togglePlay = (e) => {
+    e.stopPropagation();
+    if (!playerRef.current || showResumePrompt) return;
+    if (isPlaying) {
+      playerRef.current.pauseVideo();
+    } else {
+      playerRef.current.playVideo();
+    }
+  };
 
-  // ERROR HANDLING: CASE 1 - Movie exists but no trailer (Show Hero Layout)
-  if (movieInfo && !videoKey && !loading) {
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    if (!playerRef.current) return;
+    if (isMuted) playerRef.current.unMute();
+    else playerRef.current.mute();
+    setIsMuted(!isMuted);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
+
+  // --- RENDER ---
+  if (hasError) {
     return (
-      <div className="relative min-h-screen w-full bg-black overflow-hidden">
-        {/* Background Image */}
-        <img
-          src={`https://image.tmdb.org/t/p/original${movieInfo.backdrop_path}`}
-          alt={movieInfo.title}
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent" />
-
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="absolute top-8 left-8 z-50 p-3 hover:bg-white/10 rounded-full transition-all duration-300 group"
-        >
-          <IoArrowBack
-            size={28}
-            className="text-white group-hover:scale-110 transition-transform"
-          />
-        </button>
-
-        {/* Hero Content */}
-        <div className="absolute top-[40%] left-[4%] md:left-[60px] z-10 max-w-2xl">
-          {/* Title */}
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 drop-shadow-2xl">
-            {movieInfo.title}
-          </h1>
-
-          {/* Match Score */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-[#46d369] font-bold text-xl">
-              {matchScore}% Phù hợp
-            </span>
-          </div>
-
-          {/* Metadata */}
-          <div className="flex items-center gap-3 text-gray-300 text-base mb-6">
-            <span className="font-medium">
-              {movieInfo.release_date?.split("-")[0]}
-            </span>
-            <span className="text-gray-500">•</span>
-            <span className="px-2 py-0.5 border border-gray-500 text-xs font-semibold">
-              {movieInfo.vote_average >= 7 ? "13+" : "18+"}
-            </span>
-            {movieInfo.runtime && (
-              <>
-                <span className="text-gray-500">•</span>
-                <span>{formatRuntime(movieInfo.runtime)}</span>
-              </>
-            )}
-          </div>
-
-          {/* Overview */}
-          <p className="text-lg text-gray-200 mb-6 max-w-xl line-clamp-3 leading-relaxed">
-            {movieInfo.overview || "Chưa có mô tả."}
-          </p>
-
-          {/* Trailer Unavailable Button */}
-          <div className="space-y-4">
-            <button
-              disabled
-              className="flex items-center gap-3 bg-gray-500/50 text-white font-bold text-xl px-10 py-4 rounded-md cursor-not-allowed opacity-70"
-            >
-              <IoNotifications size={36} />
-              <span>Trailer Unavailable</span>
-            </button>
-            <p className="text-gray-400 text-sm">
-              Rất tiếc, trailer cho phim này chưa được cập nhật.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ERROR HANDLING: CASE 2 - Fatal Error (Network error or movie not found)
-  if (error || !movieInfo) {
-    return (
-      <div className="relative min-h-screen w-full bg-black flex items-center justify-center">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="absolute top-8 left-8 z-50 p-3 hover:bg-white/10 rounded-full transition-all duration-300 group"
-        >
-          <IoArrowBack
-            size={28}
-            className="text-white group-hover:scale-110 transition-transform"
-          />
-        </button>
-
-        {/* Error Content - Netflix System Message Style */}
-        <div className="text-center max-w-2xl px-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Pardon the interruption.
-          </h1>
-          <p className="text-lg md:text-xl text-gray-400 mb-10 leading-relaxed">
-            We're having trouble playing this title right now. Please try again
-            later or select a different title.
-          </p>
-
-          <button
-            onClick={() => navigate("/browse")}
-            className="px-10 py-4 bg-white hover:bg-gray-200 text-black font-bold text-lg rounded transition-all duration-300 hover:scale-105"
-          >
-            Netflix Home
-          </button>
-        </div>
-
-        {/* Error Code - Bottom Right */}
-        <div className="absolute bottom-8 right-8 text-gray-600 text-sm font-mono">
-          Error Code: NSES-404
-        </div>
+      <div className="w-screen h-screen bg-black flex flex-col items-center justify-center gap-4 text-white">
+        <h2 className="text-2xl font-bold">Video không khả dụng</h2>
+        <button onClick={() => navigate(-1)} className="mt-4 px-6 py-2 bg-white text-black font-bold rounded hover:bg-gray-200">Quay lại</button>
       </div>
     );
   }
 
   return (
-    <>
-      {/* PART 1: HERO SECTION - Cinema Poster */}
-      {!isPlaying && (
-        <div className="fixed inset-0 bg-black overflow-hidden">
-          {/* Background Image */}
-          <img
-            src={`https://image.tmdb.org/t/p/original${movieInfo.backdrop_path}`}
-            alt={movieInfo.title}
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-
-          {/* Gradient Overlay - Stronger on left and bottom */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent" />
-
-          {/* Back Button */}
-          <button
-            onClick={() => navigate(-1)}
-            className="absolute top-8 left-8 z-50 p-3 hover:bg-white/10 rounded-full transition-all duration-300 group"
-          >
-            <IoArrowBack
-              size={28}
-              className="text-white group-hover:scale-110 transition-transform"
-            />
-          </button>
-
-          {/* Hero Content */}
-          <div className="absolute top-[40%] left-[4%] md:left-[60px] z-10 max-w-2xl">
-            {/* Title */}
-            <h1 className="text-5xl md:text-7xl font-black text-white mb-6 drop-shadow-2xl">
-              {movieInfo.title}
-            </h1>
-
-            {/* Match Score (Netflix 2025 Style) */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[#46d369] font-bold text-xl">
-                {matchScore}% Phù hợp
-              </span>
-            </div>
-
-            {/* Metadata - Year | Age Rating | Duration */}
-            <div className="flex items-center gap-3 text-gray-300 text-base mb-6">
-              <span className="font-medium">
-                {movieInfo.release_date?.split("-")[0]}
-              </span>
-              <span className="text-gray-500">•</span>
-              <span className="px-2 py-0.5 border border-gray-500 text-xs font-semibold">
-                {movieInfo.vote_average >= 7 ? "13+" : "18+"}
-              </span>
-              {movieInfo.runtime && (
-                <>
-                  <span className="text-gray-500">•</span>
-                  <span>{formatRuntime(movieInfo.runtime)}</span>
-                </>
-              )}
-            </div>
-
-            {/* Overview */}
-            <p className="text-lg text-gray-200 mb-8 max-w-xl line-clamp-3 leading-relaxed">
-              {movieInfo.overview || "Chưa có mô tả."}
-            </p>
-
-            {/* Play Button - Netflix Style (White bg, black text) */}
-            {videoKey && (
-              <button
-                onClick={handlePlayClick}
-                className="group flex items-center gap-3 bg-white hover:bg-opacity-80 text-black font-bold text-xl px-10 py-4 rounded-md transition-all duration-300 hover:scale-105 shadow-2xl"
-              >
-                <IoPlay
-                  size={36}
-                  className="group-hover:scale-110 transition-transform"
-                />
-                <span>Phát</span>
-              </button>
-            )}
-
-            {!videoKey && (
-              <div className="inline-block px-6 py-3 bg-gray-800 text-gray-400 rounded-md text-lg">
-                Trailer chưa có sẵn
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* PART 2: THEATER MODE - Fullscreen Player */}
-      {isPlaying && (
-        <div className="fixed inset-0 z-50 bg-black">
-          {/* Close Button - Improved */}
-          <button
-            onClick={handleClosePlayer}
-            className="fixed top-8 right-8 z-[60] w-12 h-12 rounded-full hover:bg-white/20 transition-all duration-300 flex items-center justify-center cursor-pointer group"
-          >
-            <IoCloseOutline
-              size={36}
-              className="text-white group-hover:scale-110 group-hover:rotate-90 transition-all"
-            />
-          </button>
-
-          {/* Loading Spinner */}
-          {!playerReady && (
-            <div className="absolute inset-0 flex items-center justify-center z-40">
-              <div className="w-20 h-20 border-4 border-netflix-red border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-
-          {/* YouTube Player */}
-          <div className="w-full h-full flex items-center justify-center">
+    <div
+      className="w-screen h-screen bg-black overflow-hidden relative group font-sans select-none"
+      onMouseMove={handleMouseMove}
+      onClick={togglePlay}
+    >
+      {/* 1. VIDEO LAYER */}
+      {isReadyToPlay && videoKey ? (
+        <div className="absolute inset-0 w-full h-full pointer-events-none">
+          {/* Scale 1.4 để cắt bớt UI thừa của Youtube */}
+          <div className="w-full h-full scale-[1.40] transform origin-center">
             <YouTube
               videoId={videoKey}
               opts={opts}
-              onReady={handlePlayerReady}
-              onError={(e) => {
-                console.error("❌ Lỗi phát video:", e);
-                setError("Không thể phát video. Vui lòng thử lại.");
-                setIsPlaying(false);
-              }}
+              onReady={onPlayerReady}
+              onStateChange={onStateChange}
               className="w-full h-full"
-              iframeClassName="w-full h-full"
+              iframeClassName="w-full h-full object-cover"
             />
           </div>
         </div>
+      ) : (
+        movieInfo?.backdrop_path && (
+          <div className="absolute inset-0">
+            <img src={getImageUrl(movieInfo.backdrop_path, "original")} alt="bg" className="w-full h-full object-cover opacity-60" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+          </div>
+        )
       )}
-    </>
+
+      {/* --- MỚI: PAUSE OVERLAY (CHE KHUYẾT ĐIỂM) --- */}
+      {/* Khi Pause: Hiện lớp mờ đen để che các video đề xuất của YouTube */}
+      {isReadyToPlay && !isPlaying && !showResumePrompt && (
+        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-md transition-all duration-500">
+           {/* Bạn có thể thêm nội dung phụ ở đây nếu muốn, hoặc để trống để chỉ lấy hiệu ứng mờ */}
+        </div>
+      )}
+
+      {/* 2. RESUME PROMPT MODAL */}
+      {showResumePrompt && movieInfo && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#181818] p-8 rounded-xl shadow-2xl max-w-md w-full border border-gray-700/50 text-center transform transition-all scale-100">
+            <h2 className="text-white text-2xl font-bold mb-2">Tiếp tục xem?</h2>
+            <p className="text-gray-400 text-sm mb-6">Bạn đang xem dở <span className="text-white font-medium">{movieInfo.title}</span></p>
+            <div className="flex flex-col gap-3">
+              <button onClick={(e) => { e.stopPropagation(); handleResume(); }} className="w-full py-3 bg-[#E50914] hover:bg-[#b20710] text-white font-bold rounded-md flex items-center justify-center gap-2 transition duration-200">
+                <IoPlay size={20} /> Tiếp tục phát
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); handleRestart(); }} className="w-full py-3 bg-gray-600/50 hover:bg-gray-600 text-white font-bold rounded-md flex items-center justify-center gap-2 transition duration-200">
+                <IoReload size={20} /> Xem lại từ đầu
+              </button>
+            </div>
+            <button onClick={() => navigate(-1)} className="mt-6 text-gray-400 text-sm hover:text-white transition">Quay lại Trang chủ</button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. UI OVERLAY (CONTROLS) */}
+      {isReadyToPlay && !showResumePrompt && (
+        <div className={`absolute inset-0 transition-opacity duration-500 z-50 ${showControls || !isPlaying ? "opacity-100 cursor-default" : "opacity-0 cursor-none"}`}>
+          
+          {/* TOP HEADER */}
+          <div className="absolute top-0 left-0 w-full p-6 flex items-center gap-4 pointer-events-auto">
+            <button onClick={(e) => { e.stopPropagation(); navigate(-1); }} className="text-white hover:opacity-70 transition-transform transform active:scale-95">
+              <IoArrowBack size={40} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))" }} />
+            </button>
+            {movieInfo && (
+              <h1 className="text-white font-bold text-2xl tracking-wide opacity-90" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}>{movieInfo.title}</h1>
+            )}
+          </div>
+
+          {/* CENTER PLAY BUTTON */}
+          {!isPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Nút Play to ở giữa cũng giúp che bớt phần nào nếu blur chưa đủ */}
+              <div className="bg-white/20 backdrop-blur-lg p-6 rounded-full border border-white/30 shadow-2xl transform transition scale-100">
+                 <IoPlay className="text-white text-6xl ml-2 drop-shadow-lg" />
+              </div>
+            </div>
+          )}
+
+          {/* BOTTOM CONTROLS */}
+          <div className="absolute bottom-0 left-0 w-full px-8 pb-8 pt-20 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between">
+            <div className="flex items-center gap-8 pointer-events-auto">
+              <button onClick={togglePlay} className="text-white hover:text-[#E50914] transition-colors duration-200 transform hover:scale-110">
+                {isPlaying ? <IoPause size={40} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }} /> : <IoPlay size={40} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }} />}
+              </button>
+              <button onClick={toggleMute} className="text-white hover:text-gray-300 transition-colors duration-200">
+                {isMuted ? <IoVolumeMute size={32} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }} /> : <IoVolumeHigh size={32} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Spinner */}
+      {!isReadyToPlay && !showResumePrompt && !hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="w-12 h-12 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+    </div>
   );
 };
 
