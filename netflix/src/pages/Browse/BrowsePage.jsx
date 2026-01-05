@@ -1,10 +1,15 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../config/firebase";
 import Navbar from "../../components/Navbar/Navbar";
 import Billboard from "../../components/Browse/Billboard";
 import Row from "../../components/Browse/Row";
+import RecommendationRow from "../../components/Browse/RecommendationRow";
+import ContinueWatchingRow from "../../components/Browse/ContinueWatchingRow"; // [PHASE 2]
 import requests from "../../api/requests";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
+import { useContinueWatching } from "../../hooks/useContinueWatching"; // [PHASE 2]
 
 const ALL_ROWS = [
   {
@@ -33,10 +38,41 @@ const ALL_ROWS = [
 const ROWS_PER_BATCH = 3;
 
 const BrowsePage = () => {
+  const [user, setUser] = useState(null);
+  const [profileId, setProfileId] = useState(null);
+  const [profileName, setProfileName] = useState("You"); // [PHASE 2] Profile Name
+  const [profileData, setProfileData] = useState(null); // PHASE 1.1: Full profile data
   const [visibleRows, setVisibleRows] = useState(ROWS_PER_BATCH);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const hasMore = visibleRows < ALL_ROWS.length;
+
+  // [PHASE 2] Get continue watching data early to decide layout
+  const { movies: continueMovies } = useContinueWatching(user, profileId);
+
+  // Auth listener & Profile Loading
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+
+      // Get current profile from local storage
+      if (currentUser) {
+        try {
+          const currentProfile = localStorage.getItem("current_profile");
+          if (currentProfile) {
+            const profile = JSON.parse(currentProfile);
+            setProfileId(profile.id);
+            setProfileName(profile.name || "You");
+            setProfileData(profile); // PHASE 1.1: Store full profile data
+          }
+        } catch (error) {
+          console.error("Error loading profile:", error);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const loadMoreRows = useCallback(() => {
     if (isLoadingMore || !hasMore) return;
@@ -57,26 +93,67 @@ const BrowsePage = () => {
     isLoadingMore
   );
 
+  const showRecommendations = user && profileId;
+  const hasContinueWatching = continueMovies && continueMovies.length > 0;
+
+  // PHASE 1.1: Create enhanced user object with profile data
+  const userWithProfile = user && profileData ? {
+    ...user,
+    currentProfile: profileData
+  } : user;
+
   return (
-    // [FIX] overflow-x-hidden: Ngăn trang bị cuộn ngang
     <div className="min-h-screen w-full bg-[#141414] overflow-x-hidden">
       <Navbar />
 
       {/* Billboard */}
-      <div className="relative w-full">
+      <div className="relative w-full z-30">
         <Billboard />
       </div>
 
-      {/* Movie Rows */}
-      {/* -mt-12 md:-mt-24: Kéo hàng phim lên đè lên phần dưới của Billboard */}
-      <div className="relative z-20 w-full pb-20 -mt-16 md:-mt-24 lg:-mt-32 space-y-4 md:space-y-8">
+      {/* --- PERSONALIZED CONTENT SECTION --- */}
+
+      {/* 1. Continue Watching Row (Ưu tiên hiển thị cao nhất) */}
+      {hasContinueWatching && (
+        // [OPTIMIZED] z-40 with hover:z-50 for smooth layering
+        <div className="relative z-40 hover:z-50 w-full -mt-4 md:-mt-6 mb-4 pointer-events-auto transition-all duration-300">
+          <ContinueWatchingRow
+            user={user}
+            profileId={profileId}
+            profileName={profileName}
+          />
+        </div>
+      )}
+
+      {/* 2. Smart Recommendations Row */}
+      {showRecommendations && (
+        <div
+          className={`relative z-30 hover:z-50 w-full mb-4 transition-all duration-300 ${
+            hasContinueWatching ? "mt-2" : "-mt-4 md:-mt-6"
+          }`}
+        >
+          {/* PHASE 1.1: Pass enhanced user object with currentProfile */}
+          <RecommendationRow user={userWithProfile} profileId={profileId} />
+        </div>
+      )}
+
+      {/* 3. Generic Movie Rows (Standard Content) */}
+      <div
+        className={`relative z-20 w-full pb-20 transition-all duration-300 ${
+          hasContinueWatching || showRecommendations
+            ? "mt-2"
+            : "-mt-16 md:-mt-24 lg:-mt-32"
+        }`}
+      >
         {ALL_ROWS.slice(0, visibleRows).map((row, index) => (
           <motion.div
             key={row.id}
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "100px" }} // Tối ưu hiệu năng, chỉ load khi gần đến
+            viewport={{ once: true, margin: "100px" }}
             transition={{ duration: 0.6 }}
+            // [OPTIMIZED Z-INDEX]: Row hover nổi lên z-50, base z-10
+            className="relative z-10 hover:z-50 transition-all duration-300"
           >
             <Row
               title={row.title}

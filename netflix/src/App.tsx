@@ -38,6 +38,8 @@ import Search from "./pages/Search/Search";
 // @ts-expect-error - Component is in JSX
 import ProfileGate from "./pages/Profile/ProfileGate";
 // @ts-expect-error - Component is in JSX
+import MigrationHelper from "./pages/Debug/MigrationHelper";
+// @ts-expect-error - Component is in JSX
 import NetflixSpinner from "./components/common/NetflixSpinner";
 
 // Context
@@ -245,6 +247,18 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Dev Tools - Only accessible in development */}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/migration"
+                element={
+                  <ProtectedRoute user={user} hasProfile={hasProfile}>
+                    <MigrationHelper />
+                  </ProtectedRoute>
+                }
+              />
+            )}
 
             {/* Catch all - redirect to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
