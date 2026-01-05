@@ -38,7 +38,7 @@ firebase functions:config:get
 ```json
 {
   "tmdb": {
-    "key": "AIzaSyATu-36pC5jw1Y0glWpi7Sbic8KzCaARnQ",  ❌ Firebase API Key
+    "key": "",  ❌ Firebase API Key
     "base_url": "https://api.themoviedb.org/3"
   }
 }
